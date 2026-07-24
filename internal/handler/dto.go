@@ -1,0 +1,175 @@
+package handler
+
+import "mitm-departament/internal/models"
+
+// ========== Users ==========
+
+type CreateUserRequest struct {
+	FullName string  `json:"full_name" binding:"required,min=3"`
+	Password string  `json:"password" binding:"omitempty,min=8"`
+	Role     string  `json:"role" binding:"required,oneof=student teacher staff"`
+	Phone    *string `json:"phone"`
+	Email    *string `json:"email" binding:"omitempty,email"`
+}
+
+type UpdateUserRequest struct {
+	FullName string  `json:"full_name" binding:"required,min=3"`
+	Role     string  `json:"role" binding:"required,oneof=student teacher staff"`
+	Phone    *string `json:"phone"`
+	Email    *string `json:"email" binding:"omitempty,email"`
+	IsActive *bool   `json:"is_active"`
+}
+
+type UserResponse struct {
+	ID        string  `json:"id"`
+	FullName  string  `json:"full_name"`
+	Role      string  `json:"role"`
+	Phone     *string `json:"phone,omitempty"`
+	Email     *string `json:"email,omitempty"`
+	IsActive  bool    `json:"is_active"`
+	CreatedAt string  `json:"created_at"`
+}
+
+func ToUserResponse(u *models.User) UserResponse {
+	return UserResponse{
+		ID:        u.ID,
+		FullName:  u.FullName,
+		Role:      u.Role,
+		Phone:     u.Phone,
+		Email:     u.Email,
+		IsActive:  u.IsActive,
+		CreatedAt: u.CreatedAt.Format("2006-01-02 15:04:05"),
+	}
+}
+
+// ========== Keys ==========
+
+type CreateKeyRequest struct {
+	KeyNumber       string  `json:"key_number" binding:"required,min=1"`
+	RoomDescription string  `json:"room_description" binding:"required,min=1"`
+	Notes           *string `json:"notes"`
+}
+
+type UpdateKeyRequest struct {
+	KeyNumber       string  `json:"key_number" binding:"required,min=1"`
+	RoomDescription string  `json:"room_description" binding:"required,min=1"`
+	Status          string  `json:"status" binding:"omitempty,oneof=available issued lost"`
+	Notes           *string `json:"notes"`
+}
+
+type KeyResponse struct {
+	ID              int64   `json:"id"`
+	KeyNumber       string  `json:"key_number"`
+	RoomDescription string  `json:"room_description"`
+	Status          string  `json:"status"`
+	Notes           *string `json:"notes,omitempty"`
+}
+
+func ToKeyResponse(k *models.Key) KeyResponse {
+	return KeyResponse{
+		ID:              k.ID,
+		KeyNumber:       k.KeyNumber,
+		RoomDescription: k.RoomDescription,
+		Status:          string(k.Status),
+		Notes:           k.Notes,
+	}
+}
+
+// ========== Key Operations ==========
+
+type IssueKeyRequest struct {
+	UserID  string  `json:"user_id" binding:"required,uuid"`
+	Comment *string `json:"comment"`
+}
+
+type ReturnKeyRequest struct {
+	Comment *string `json:"comment"`
+}
+
+type KeyLogResponse struct {
+	ID         int64   `json:"id"`
+	KeyID      int64   `json:"key_id"`
+	UserID     string  `json:"user_id"`
+	ActionType string  `json:"action_type"`
+	Timestamp  string  `json:"timestamp"`
+	Comment    *string `json:"comment,omitempty"`
+}
+
+func ToKeyLogResponse(l *models.KeyLog) KeyLogResponse {
+	return KeyLogResponse{
+		ID:         l.ID,
+		KeyID:      l.KeyID,
+		UserID:     l.UserID,
+		ActionType: string(l.ActionType),
+		Timestamp:  l.Timestamp.Format("2006-01-02 15:04:05"),
+		Comment:    l.Comment,
+	}
+}
+
+// ========== Common ==========
+
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
+type MessageResponse struct {
+	Message string `json:"message"`
+}
+
+// ========== Equipment ==========
+
+type CreateEquipmentRequest struct {
+	Name             string  `json:"name" binding:"required,min=1"`
+	Description      *string `json:"description"`
+	Location         *string `json:"location"`
+	Documentation    *string `json:"documentation"`
+	InventoryNumber  *string `json:"inventory_number"`
+	ResponsibleID    *string `json:"responsible_id"`
+	Status           *bool   `json:"status"`
+	VerificationDate *string `json:"verification_date"` // формат: "2006-01-02"
+}
+
+type UpdateEquipmentRequest struct {
+	Name             string  `json:"name" binding:"required,min=1"`
+	Description      *string `json:"description"`
+	Location         *string `json:"location"`
+	Documentation    *string `json:"documentation"`
+	InventoryNumber  *string `json:"inventory_number"`
+	ResponsibleID    *string `json:"responsible_id"`
+	Status           *bool   `json:"status"`
+	VerificationDate *string `json:"verification_date"`
+}
+
+type EquipmentResponse struct {
+	ID               int64   `json:"id"`
+	Name             string  `json:"name"`
+	Description      *string `json:"description,omitempty"`
+	Location         *string `json:"location,omitempty"`
+	Documentation    *string `json:"documentation,omitempty"`
+	InventoryNumber  *string `json:"inventory_number,omitempty"`
+	ResponsibleID    *string `json:"responsible_id,omitempty"`
+	Status           bool    `json:"status"`
+	VerificationDate *string `json:"verification_date,omitempty"`
+	CreatedAt        string  `json:"created_at"`
+	UpdatedAt        string  `json:"updated_at"`
+}
+
+func ToEquipmentResponse(e *models.Equipment) EquipmentResponse {
+	resp := EquipmentResponse{
+		ID:              e.ID,
+		Name:            e.Name,
+		Description:     e.Description,
+		Location:        e.Location,
+		Documentation:   e.Documentation,
+		InventoryNumber: e.InventoryNumber,
+		ResponsibleID:   e.ResponsibleID,
+		Status:          e.Status,
+		CreatedAt:       e.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:       e.UpdatedAt.Format("2006-01-02 15:04:05"),
+	}
+	if e.VerificationDate != nil {
+		s := e.VerificationDate.Format("2006-01-02")
+		resp.VerificationDate = &s
+	}
+	return resp
+}
