@@ -184,8 +184,7 @@ function renderEquipmentRow(eq, responsibleName) {
         <td>${verif}</td>
         <td>${badge}</td>
         <td class="actions-cell">
-            <button class="btn btn-secondary btn-sm" data-action="view" data-id="${eq.id}" title="Подробнее">👁️</button>
-            <button class="btn btn-secondary btn-sm" data-action="edit" data-id="${eq.id}" title="Редактировать">✏️</button>
+            <button class="btn btn-secondary btn-sm" onclick="window.location.hash='/equipment/view/${eq.id}'" title="Открыть карточку">👁️</button>            <button class="btn btn-secondary btn-sm" data-action="edit" data-id="${eq.id}" title="Редактировать">✏️</button>
             <button class="btn btn-danger btn-sm" data-action="delete" data-id="${eq.id}" title="Удалить">🗑️</button>
         </td>
     </tr>`;
@@ -617,3 +616,169 @@ async function showUserForm(id = null) {
         }
     });
 }
+
+// ============================================================
+// ==================== КЛИЕНТСКАЯ МАРШРУТИЗАЦИЯ ==============
+// ============================================================
+
+// Слушаем изменение хэша в URL (например, #/equipment/view/5)
+window.addEventListener('hashchange', handleRoute);
+window.addEventListener('load', handleRoute); // Обрабатываем при первой загрузке
+
+function handleRoute() {
+    const hash = window.location.hash;
+    
+    // Если хэш пустой или просто #, показываем главную страницу с оборудованием
+    if (!hash || hash === '#') {
+        showMainApp();
+        return;
+    }
+
+    // Проверяем паттерн #/equipment/view/ID
+    const match = hash.match(/^#\/equipment\/view\/(\d+)$/);
+    if (match) {
+        const id = match[1];
+        renderEquipmentViewPage(id);
+    }
+}
+
+function showMainApp() {
+    // 1. Скрываем страницу просмотра, если она была открыта
+    const viewContainer = document.getElementById('full-page-view');
+    if (viewContainer) {
+        viewContainer.style.display = 'none';
+    }
+
+    // 2. Возвращаем видимость основного интерфейса
+    document.querySelector('header').style.display = 'block';
+    document.querySelector('main').style.display = 'block';
+    
+    // 3. Активируем вкладку оборудования, если мы были где-то еще
+    const eqTab = document.querySelector('.tab[data-page="equipment"]');
+    if (eqTab && !eqTab.classList.contains('active')) {
+        eqTab.click();
+    }
+}
+
+async function renderEquipmentViewPage(id) {
+    // Скрываем основной интерфейс, чтобы создать эффект отдельной страницы
+    document.querySelector('header').style.display = 'none';
+    document.querySelector('main').style.display = 'none';
+
+    // Создаем контейнер для "страницы", если его нет
+    let viewContainer = document.getElementById('full-page-view');
+    if (!viewContainer) {
+        viewContainer = document.createElement('div');
+        viewContainer.id = 'full-page-view';
+        document.body.appendChild(viewContainer);
+    }
+
+    viewContainer.innerHTML = '<div class="loading" style="padding:50px; text-align:center;">Загрузка карточки...</div>';
+    viewContainer.style.display = 'block';
+    viewContainer.style.background = 'var(--gray-50)';
+    viewContainer.style.minHeight = '100vh';
+
+    try {
+        const eq = await api.getEquipmentById(id);
+        
+        // Получаем имя ответственного
+        let respName = 'Не назначен';
+        if (eq.responsible_id) {
+            try {
+                const u = await api.getUser(eq.responsible_id);
+                if (u) respName = u.full_name;
+            } catch (_) {}
+        }
+
+        // Форматирование
+        let verifHtml = '—';
+        if (eq.verification_date) {
+            const d = new Date(eq.verification_date);
+            const isExpired = d < new Date();
+            const color = isExpired ? '#dc2626' : '#16a34a';
+            verifHtml = `<span style="color:${color}; font-weight:bold;">${d.toLocaleDateString('ru-RU')}</span>`;
+        }
+
+        let docHtml = '—';
+        if (eq.documentation) {
+             if (eq.documentation.startsWith('http')) {
+                docHtml = `<a href="${eq.documentation}" target="_blank" class="doc-link">🔗 Открыть ссылку</a>`;
+            } else {
+                docHtml = UI.escape(eq.documentation);
+            }
+        }
+
+        const statusBadge = eq.status 
+            ? '<span class="badge badge-available">Доступно</span>' 
+            : '<span class="badge badge-lost">Недоступно</span>';
+
+        // Рендер полной страницы
+        viewContainer.innerHTML = `
+            <div style="max-width: 800px; margin: 40px auto; background: white; padding: 40px; border-radius: 12px; box-shadow: var(--shadow-lg);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 30px; border-bottom: 1px solid var(--gray-200); padding-bottom: 20px;">
+                    <h1 style="margin:0; font-size: 28px; color: var(--gray-900);">${UI.escape(eq.name)}</h1>
+                    <button onclick="window.history.back()" class="btn btn-secondary">← Назад к списку</button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                    <div>
+                        <div style="margin-bottom: 20px;">
+                            <div class="label" style="font-size: 12px; text-transform: uppercase; color: var(--gray-500); font-weight: 600;">Инвентарный номер</div>
+                            <div style="font-size: 18px; margin-top: 5px;">${UI.escape(eq.inventory_number || '—')}</div>
+                        </div>
+                        <div style="margin-bottom: 20px;">
+                            <div class="label" style="font-size: 12px; text-transform: uppercase; color: var(--gray-500); font-weight: 600;">Локация</div>
+                            <div style="font-size: 18px; margin-top: 5px;">${UI.escape(eq.location || '—')}</div>
+                        </div>
+                        <div style="margin-bottom: 20px;">
+                            <div class="label" style="font-size: 12px; text-transform: uppercase; color: var(--gray-500); font-weight: 600;">Статус</div>
+                            <div style="margin-top: 5px;">${statusBadge}</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="margin-bottom: 20px;">
+                            <div class="label" style="font-size: 12px; text-transform: uppercase; color: var(--gray-500); font-weight: 600;">Ответственный</div>
+                            <div style="font-size: 18px; margin-top: 5px;">${UI.escape(respName)}</div>
+                        </div>
+                        <div style="margin-bottom: 20px;">
+                            <div class="label" style="font-size: 12px; text-transform: uppercase; color: var(--gray-500); font-weight: 600;">Дата поверки</div>
+                            <div style="font-size: 18px; margin-top: 5px;">${verifHtml}</div>
+                        </div>
+                         <div style="margin-bottom: 20px;">
+                            <div class="label" style="font-size: 12px; text-transform: uppercase; color: var(--gray-500); font-weight: 600;">Документация</div>
+                            <div style="font-size: 16px; margin-top: 5px;">${docHtml}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--gray-200);">
+                    <div class="label" style="font-size: 12px; text-transform: uppercase; color: var(--gray-500); font-weight: 600;">Описание</div>
+                    <p style="margin-top: 10px; line-height: 1.6; color: var(--gray-700); white-space: pre-wrap;">${UI.escape(eq.description || 'Описание отсутствует')}</p>
+                </div>
+
+                <div style="margin-top: 40px; display: flex; gap: 15px;">
+                    <button onclick="window.history.back()" class="btn btn-secondary">Назад</button>
+                    <button onclick="editFromView(${eq.id})" class="btn btn-primary">✏️ Редактировать</button>
+                </div>
+            </div>
+        `;
+
+    } catch (err) {
+        viewContainer.innerHTML = `
+            <div style="text-align:center; padding: 50px;">
+                <h2 style="color: var(--danger);">Ошибка загрузки</h2>
+                <p>${err.message}</p>
+                <button onclick="window.history.back()" class="btn btn-secondary" style="margin-top:20px;">Вернуться назад</button>
+            </div>
+        `;
+    }
+}
+
+// Вспомогательная функция для кнопки редактирования со страницы просмотра
+window.editFromView = function(id) {
+    window.location.hash = ''; // Сбрасываем хэш, чтобы вернуться в основное приложение
+    // Небольшая задержка, чтобы успел отработать hashchange и показать главную страницу
+    setTimeout(() => {
+        showEquipmentForm(id);
+    }, 100);
+};
