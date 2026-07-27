@@ -90,30 +90,38 @@ func (s *Handler) getRequestID(c *gin.Context) string {
 	return c.GetString(requestIDKey)
 }
 
+// FIX:
 func (h *Handler) authMiddleware(c *gin.Context) {
-	_, err := getRefreshToken(c)
+	tokenID, err := getRefreshToken(c)
 	if err != nil {
-		c.Redirect(http.StatusSeeOther, "/api/auth/login")
-		c.Abort()
+		c.AbortWithStatusJSON(http.StatusUnauthorized,
+			ErrorResponse{Error: "требуется авторизация"})
+		return
+	}
+
+	// Валидируем refresh token в БД, а не просто наличие cookie
+	if err := h.auth.svc.ValidateRefreshSession(c.Request.Context(), tokenID); err != nil {
+		c.AbortWithStatusJSON(http.StatusUnauthorized,
+			ErrorResponse{Error: "сессия недействительна"})
 		return
 	}
 
 	accessToken, err := getAccessToken(c)
 	if err != nil {
-		c.Redirect(http.StatusUnauthorized, "/api/auth/login")
-		c.Abort()
+		c.AbortWithStatusJSON(http.StatusUnauthorized,
+			ErrorResponse{Error: "отсутствует токен доступа"})
 		return
 	}
 
-	userID, err := h.auth.svc.ParseToken(c.Request.Context(), accessToken)
+	userID, role, err := h.auth.svc.ParseToken(c.Request.Context(), accessToken)
 	if err != nil {
-		c.Redirect(http.StatusSeeOther, "/api/auth/login")
-		c.Abort()
+		c.AbortWithStatusJSON(http.StatusUnauthorized,
+			ErrorResponse{Error: "недействительный токен"})
 		return
 	}
 
 	c.Set(userIDKey, userID)
-
+	c.Set(roleKey, role)
 	c.Next()
 }
 
@@ -169,4 +177,31 @@ func getParamUUID(c *gin.Context, param string) (string, error) {
 		return "", fmt.Errorf("empty %s param", param)
 	}
 	return id, nil
+}
+
+func requireRoles(roles ...string) gin.HandlerFunc {
+	allowed := make(map[string]struct{}, len(roles))
+	for _, r := range roles {
+		allowed[r] = struct{}{}
+	}
+	return func(c *gin.Context) {
+		raw, exists := c.Get(roleKey)
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusForbidden,
+				ErrorResponse{Error: "доступ запрещён"})
+			return
+		}
+		role, ok := raw.(string)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusForbidden,
+				ErrorResponse{Error: "доступ запрещён"})
+			return
+		}
+		if _, ok := allowed[role]; !ok {
+			c.AbortWithStatusJSON(http.StatusForbidden,
+				ErrorResponse{Error: "недостаточно прав"})
+			return
+		}
+		c.Next()
+	}
 }

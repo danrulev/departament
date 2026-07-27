@@ -9,9 +9,10 @@ import (
 )
 
 type Token struct {
-	UserID    string
-	TokenID   string
-	ExpiresAt time.Time
+	UserID    string    `db:"user_id"`
+	Role      string    `db:"role"`
+	TokenID   string    `db:"token_id"`
+	ExpiresAt time.Time `db:"expires_at"`
 }
 
 type TokenClaims struct {

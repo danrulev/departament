@@ -1,9 +1,8 @@
 package handler
 
 import (
-	"net/http"
-
 	"mitm-departament/internal/models"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,11 +22,11 @@ func NewUserHandler(userSvc UserService, keySvc KeyService) *UserHandler {
 func (h *UserHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	users := rg.Group("/users")
 	{
-		users.POST("", h.Create)
+		users.POST("", h.Create, requireRoles(adminKey))
 		users.GET("", h.ListActive)
 		users.GET("/:id", h.GetByID)
-		users.PUT("/:id", h.Update)
-		users.DELETE("/:id", h.Deactivate)
+		users.PUT("/:id", h.Update, requireRoles(adminKey))
+		users.DELETE("/:id", h.Deactivate, requireRoles(adminKey))
 		users.GET("/:id/history", h.History)
 	}
 }

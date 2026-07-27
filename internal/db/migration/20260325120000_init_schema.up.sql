@@ -7,13 +7,14 @@ CREATE TABLE IF NOT EXISTS users (
     password TEXT NOT NULL,
     role TEXT NOT NULL,            -- Роль: студент, преподаватель, сотрудник
     phone TEXT,                    -- Контактный телефон
-    email TEXT,                    -- Email
+    email TEXT NOT NULL,           -- Email
     is_active BOOLEAN DEFAULT 1,   -- Активен ли пользователь (уволился/выпустился)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS tokens (
     user_id TEXT,
+    role TEXT,
     token_id TEXT,
     expired_at TIMESTAMP
 );
@@ -53,6 +54,7 @@ CREATE TABLE IF NOT EXISTS equipment(
     inventory_number TEXT UNIQUE, -- ИНВЕНТАРНЫЙ НОМЕР
     responsible_id TEXT NOT NULL, -- ОТВЕТСТВЕННЫЙ
     status BOOLEAN DEFAULT 1, -- Статус: 1 - ДОСТУПЕН, 0 - НЕ ДОСТУПЕН
+    unavailable_reason TEXT,
     verification_date DATE, -- ДАТА ПОВЕРКИ
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

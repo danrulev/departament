@@ -76,12 +76,15 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
+	api := router.Group("/api")
+	h.user.RegisterRoutes(api)
+
 	// 2. API Routes
-	api := router.Group("/api/v1")
+	apiV1 := router.Group("/api/v1", h.authMiddleware)
 	{
-		h.user.RegisterRoutes(api)
-		h.key.RegisterRoutes(api)
-		h.equipment.RegisterRoutes(api)
+		h.key.RegisterRoutes(apiV1)
+		h.equipment.RegisterRoutes(apiV1)
+		h.user.RegisterRoutes(apiV1)
 	}
 
 	// 3. Раздача фронтенда (SPA)

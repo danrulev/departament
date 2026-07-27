@@ -1,9 +1,8 @@
 package handler
 
 import (
-	"net/http"
-
 	"mitm-departament/internal/models"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,13 +18,13 @@ func NewKeyHandler(svc KeyService) *KeyHandler {
 func (h *KeyHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	keys := rg.Group("/keys")
 	{
-		keys.POST("", h.create)
+		keys.POST("", h.create, requireRoles(adminKey))
 		keys.GET("", h.list)
 		keys.GET("/:id", h.getByID)
-		keys.PUT("/:id", h.update)
+		keys.PUT("/:id", h.update, requireRoles(adminKey))
 		keys.POST("/:id/issue", h.issue)
 		keys.POST("/:id/return", h.returnKey)
-		keys.POST("/:id/lost", h.markLost)
+		keys.POST("/:id/lost", h.markLost, requireRoles(adminKey))
 		keys.GET("/:id/history", h.history)
 		keys.GET("/:id/holder", h.getCurrentHolder)
 	}

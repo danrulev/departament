@@ -22,9 +22,9 @@ func NewTokenRepository(db *sqlx.DB, log *zap.Logger) *TokenR {
 }
 
 func (t *TokenR) CreateToken(ctx context.Context, token models.Token) error {
-	query := `INSERT INTO tokens (user_id, token_id, expired_at) VALUES (?, ?, ?)`
+	query := `INSERT INTO tokens (user_id, token_id, role, expired_at) VALUES (?, ?, ?, ?)`
 
-	_, err := t.db.ExecContext(ctx, query, token.UserID, token.TokenID, token.ExpiresAt)
+	_, err := t.db.ExecContext(ctx, query, token.UserID, token.TokenID, token.Role, token.ExpiresAt)
 	if err != nil {
 		t.log.Error("failed to execute INSERT query in CreateToken",
 			zap.Error(err),
@@ -38,7 +38,7 @@ func (t *TokenR) CreateToken(ctx context.Context, token models.Token) error {
 }
 
 func (t *TokenR) Token(ctx context.Context, tokenID string) (models.Token, error) {
-	query := `SELECT user_id, token_id, expired_at FROM tokens WHERE token_id=?`
+	query := `SELECT user_id, token_id, role, expired_at FROM tokens WHERE token_id=?`
 
 	row := t.db.QueryRowContext(ctx, query, tokenID)
 
@@ -46,6 +46,7 @@ func (t *TokenR) Token(ctx context.Context, tokenID string) (models.Token, error
 	if err := row.Scan(
 		&token.UserID,
 		&token.TokenID,
+		&token.Role,
 		&token.ExpiresAt,
 	); err != nil {
 		if err == sql.ErrNoRows {

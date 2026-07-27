@@ -5,9 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
-
 	"mitm-departament/internal/models"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
@@ -30,9 +29,9 @@ const equipmentColumns = `id, name, description, location, documentation, invent
 func (r *EquipmentRepo) Create(ctx context.Context, e *models.Equipment) error {
 	res, err := r.db.NamedExecContext(ctx,
 		`INSERT INTO equipment 
-			(name, description, location, documentation, inventory_number, responsible_id, status, verification_date)
+			(name, description, location, documentation, inventory_number, responsible_id, status, unavailable_reason, verification_date)
 		 VALUES 
-			(:name, :description, :location, :documentation, :inventory_number, :responsible_id, :status, :verification_date)`, e)
+			(:name, :description, :location, :documentation, :inventory_number, :responsible_id, :status, :unavailable_reason, :verification_date)`, e)
 	if err != nil {
 		return fmt.Errorf("insert equipment: %w", err)
 	}
@@ -158,6 +157,7 @@ func (r *EquipmentRepo) Update(ctx context.Context, e *models.Equipment) error {
 			inventory_number = :inventory_number,
 			responsible_id = :responsible_id,
 			status = :status,
+			unavailable_reason = :unavailable_reason,
 			verification_date = :verification_date,
 			updated_at = CURRENT_TIMESTAMP
 		 WHERE id = :id`, e)

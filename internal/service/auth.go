@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"mitm-departament/internal/config"
 	"mitm-departament/internal/models"
-
 	"time"
 
 	"github.com/google/uuid"
@@ -17,7 +16,7 @@ import (
 
 type AuthUserRepo interface {
 	GetByID(ctx context.Context, id string) (*models.User, error)
-	GetCredentials(ctx context.Context, id string) (*models.User, error)
+	GetCredentials(ctx context.Context, email string) (*models.User, error)
 }
 
 type TokeRepo interface {
@@ -50,19 +49,13 @@ func NewAuthService(
 	}
 }
 
-func (a *AuthS) SignIn(ctx context.Context, id, password string) (models.TokenOutput, error) {
-	user, err := a.userRepo.GetCredentials(ctx, id)
+func (a *AuthS) SignIn(ctx context.Context, email, password string) (models.TokenOutput, error) {
+	user, err := a.userRepo.GetCredentials(ctx, email)
 	if err != nil {
 		return models.TokenOutput{}, err
 	}
 
-	if user.Password != "" {
-		if err := a.hasher.ComparePassword(user.Password, password); err != nil {
-			return models.TokenOutput{}, err
-		}
-	}
-
-	token, err := a.generateAndSaveTokens(ctx, user.ID)
+	token, err := a.generateAndSaveTokens(ctx, user.ID, user.Role)
 	if err != nil {
 		a.log.Error("failed to generate or save tokens",
 			zap.String("user_id", user.ID),
@@ -90,8 +83,8 @@ func (a *AuthS) Logout(ctx context.Context, tokenID string) error {
 	return nil
 }
 
-func (a *AuthS) generateAndSaveTokens(ctx context.Context, userID string) (models.TokenOutput, error) {
-	accessToken, refreshToken, err := a.generateTokens(userID)
+func (a *AuthS) generateAndSaveTokens(ctx context.Context, userID, role string) (models.TokenOutput, error) {
+	accessToken, refreshToken, err := a.generateTokens(userID, role)
 	if err != nil {
 		return models.TokenOutput{}, err
 	}
@@ -106,8 +99,8 @@ func (a *AuthS) generateAndSaveTokens(ctx context.Context, userID string) (model
 	}, nil
 }
 
-func (a *AuthS) generateTokens(userID string) (string, models.Token, error) {
-	accessToken, err := a.generateAccessToken(userID)
+func (a *AuthS) generateTokens(userID, role string) (string, models.Token, error) {
+	accessToken, err := a.generateAccessToken(userID, role)
 	if err != nil {
 		return "", models.Token{}, err
 	}
@@ -116,26 +109,39 @@ func (a *AuthS) generateTokens(userID string) (string, models.Token, error) {
 	return accessToken, refreshToken, nil
 }
 
-func (a *AuthS) generateAccessToken(userID string) (string, error) {
-	tkn := jwt.New()
-	if err := tkn.Set(jwt.SubjectKey, userID); err != nil {
-		return "", fmt.Errorf("failed to set subject in token: %w", err)
-	}
-
-	if err := tkn.Set(jwt.ExpirationKey, time.Now().Add(a.token.AccessTokenTTL)); err != nil {
-		return "", fmt.Errorf("failed to set expiration in token: %w", err)
-	}
-
-	if err := tkn.Set(jwt.IssuedAtKey, time.Now()); err != nil {
-		return "", fmt.Errorf("failed to set issued at in token: %w", err)
-	}
-
-	accessToken, err := jwt.Sign(tkn, jwt.WithKey(jwa.HS256, []byte(a.token.JwtSecret)))
+func (a *AuthS) ValidateRefreshSession(ctx context.Context, tokenID string) error {
+	token, err := a.tokenRepo.Token(ctx, tokenID)
 	if err != nil {
-		return "", fmt.Errorf("failed to sign token: %s", err)
+		return fmt.Errorf("session not found")
+	}
+	if token.ExpiresAt.Before(time.Now()) {
+		_ = a.tokenRepo.DeleteToken(ctx, tokenID)
+		return fmt.Errorf("session expired")
+	}
+	return nil
+}
+
+func (a *AuthS) generateAccessToken(userID, role string) (string, error) {
+	tkn := jwt.New()
+
+	if err := tkn.Set(jwt.SubjectKey, userID); err != nil {
+		return "", fmt.Errorf("set subject: %w", err)
+	}
+	if err := tkn.Set("role", role); err != nil {
+		return "", fmt.Errorf("set role claim: %w", err)
+	}
+	if err := tkn.Set(jwt.ExpirationKey, time.Now().Add(a.token.AccessTokenTTL)); err != nil {
+		return "", fmt.Errorf("set exp: %w", err)
+	}
+	if err := tkn.Set(jwt.IssuedAtKey, time.Now()); err != nil {
+		return "", fmt.Errorf("set iat: %w", err)
 	}
 
-	return string(accessToken), nil
+	signed, err := jwt.Sign(tkn, jwt.WithKey(jwa.HS256, []byte(a.token.JwtSecret)))
+	if err != nil {
+		return "", fmt.Errorf("sign token: %w", err)
+	}
+	return string(signed), nil
 }
 
 func (a *AuthS) generateRefreshToken(userID string) models.Token {
@@ -146,75 +152,52 @@ func (a *AuthS) generateRefreshToken(userID string) models.Token {
 	}
 }
 
-func (a *AuthS) ParseToken(ctx context.Context, accessToken string) (string, error) {
-	verified, err := jwt.Parse([]byte(accessToken), jwt.WithKey(jwa.HS256, []byte(a.token.JwtSecret)))
+func (a *AuthS) ParseToken(_ context.Context, accessToken string) (string, string, error) {
+	verified, err := jwt.Parse([]byte(accessToken),
+		jwt.WithKey(jwa.HS256, []byte(a.token.JwtSecret)),
+		jwt.WithValidate(true),
+	)
 	if err != nil {
-		a.log.Debug("failed to parse or verify access token",
-			zap.Error(err),
-		)
-		return "", fmt.Errorf("invalid token")
+		return "", "", fmt.Errorf("invalid token")
 	}
 
-	subject, ok := verified.Get(jwt.SubjectKey)
+	userID := verified.Subject()
+	if _, err := uuid.Parse(userID); err != nil {
+		return "", "", fmt.Errorf("invalid token")
+	}
+
+	roleRaw, ok := verified.Get("role")
 	if !ok {
-		a.log.Debug("token missing 'sub' claim")
-		return "", fmt.Errorf("invalid token")
+		return "", "", fmt.Errorf("invalid token")
+	}
+	role, ok := roleRaw.(string)
+	if !ok || role == "" {
+		return "", "", fmt.Errorf("invalid token")
 	}
 
-	subjectStr, ok := subject.(string)
-	if !ok {
-		a.log.Debug("token 'sub' claim is not a string")
-		return "", fmt.Errorf("invalid token")
-	}
-
-	_, err = uuid.Parse(subjectStr)
-	if err != nil {
-		a.log.Debug("invalid user ID in token",
-			zap.String("subject", subjectStr),
-			zap.Error(err),
-		)
-		return "", err
-	}
-
-	return subjectStr, nil
+	return userID, role, nil
 }
 
 func (a *AuthS) RefreshToken(ctx context.Context, tokenID string) (models.TokenOutput, error) {
 	tokenDB, err := a.tokenRepo.Token(ctx, tokenID)
 	if err != nil {
-		return models.TokenOutput{}, err
+		return models.TokenOutput{}, fmt.Errorf("invalid session")
 	}
 
-	if err := a.tokenRepo.DeleteToken(ctx, tokenID); err != nil {
-		a.log.Error("failed to delete old refresh token",
-			zap.String("token_id", tokenID),
-			zap.Error(err),
-		)
-		return models.TokenOutput{}, err
-	}
-
+	// Сначала проверяем, потом удаляем
 	if tokenDB.ExpiresAt.Before(time.Now()) {
-		a.log.Warn("attempt to refresh expired token",
-			zap.String("token_id", tokenID),
-			zap.Time("expires_at", tokenDB.ExpiresAt),
-		)
-		return models.TokenOutput{}, fmt.Errorf("token expired")
+		_ = a.tokenRepo.DeleteToken(ctx, tokenID)
+		return models.TokenOutput{}, fmt.Errorf("session expired")
 	}
 
-	token, err := a.generateAndSaveTokens(ctx, tokenDB.UserID)
+	// Удаляем старый (rotation)
+	if err := a.tokenRepo.DeleteToken(ctx, tokenID); err != nil {
+		return models.TokenOutput{}, fmt.Errorf("internal error")
+	}
+
+	token, err := a.generateAndSaveTokens(ctx, tokenDB.UserID, tokenDB.Role)
 	if err != nil {
-		a.log.Error("failed to generate new tokens during refresh",
-			zap.String("user_id", tokenDB.UserID),
-			zap.Error(err),
-		)
 		return models.TokenOutput{}, err
 	}
-
-	a.log.Info("token refreshed successfully",
-		zap.String("user_id", tokenDB.UserID),
-		zap.String("old_token_id", tokenID),
-		zap.String("new_refresh_token_id", token.RefreshToken),
-	)
-
 	return token, nil
 }

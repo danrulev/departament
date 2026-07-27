@@ -2,10 +2,9 @@ package handler
 
 import (
 	"context"
+	"mitm-departament/internal/models"
 	"net/http"
 	"time"
-
-	"mitm-departament/internal/models"
 
 	"github.com/gin-gonic/gin"
 )
@@ -31,12 +30,12 @@ func NewEquipmentHandler(svc EquipmentService) *EquipmentHandler {
 func (h *EquipmentHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	equipment := rg.Group("/equipment")
 	{
-		equipment.POST("", h.create)
+		equipment.POST("", h.create, requireRoles(adminKey))
 		equipment.GET("", h.list)
 		equipment.GET("/expired-verification", h.listExpiredVerification)
 		equipment.GET("/:id", h.getByID)
-		equipment.PUT("/:id", h.update)
-		equipment.DELETE("/:id", h.delete)
+		equipment.PUT("/:id", h.update, requireRoles(adminKey))
+		equipment.DELETE("/:id", h.delete, requireRoles(adminKey))
 	}
 }
 
@@ -79,6 +78,14 @@ func (h *EquipmentHandler) create(c *gin.Context) {
 		ResponsibleID:    req.ResponsibleID,
 		Status:           status,
 		VerificationDate: verificationDate,
+	}
+
+	equipment.Status = status
+	if status {
+		reason := "Причина не указана"
+		equipment.UnavailableReason = &reason // доступен → причины нет
+	} else {
+		equipment.UnavailableReason = req.UnavailableReason
 	}
 
 	if err := h.svc.Create(c.Request.Context(), equipment); err != nil {
@@ -173,6 +180,10 @@ func (h *EquipmentHandler) update(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "неверный формат даты поверки (ожидается YYYY-MM-DD)"})
 		return
+	}
+
+	if req.UnavailableReason != nil && *req.UnavailableReason != "" {
+		equipment.UnavailableReason = req.UnavailableReason
 	}
 
 	equipment.Name = req.Name

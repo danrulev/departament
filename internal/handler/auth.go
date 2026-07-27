@@ -10,9 +10,10 @@ import (
 )
 
 type AuthService interface {
-	SignIn(ctx context.Context, id, password string) (models.TokenOutput, error)
+	SignIn(ctx context.Context, email, password string) (models.TokenOutput, error)
 	Logout(ctx context.Context, tokenID string) error
-	ParseToken(ctx context.Context, accessToken string) (string, error)
+	ValidateRefreshSession(ctx context.Context, tokenID string) error
+	ParseToken(ctx context.Context, accessToken string) (string, string, error)
 	RefreshToken(ctx context.Context, tokenID string) (models.TokenOutput, error)
 }
 
@@ -35,18 +36,8 @@ func (h *AuthHandler) RegisterRoutes(rg *gin.RouterGroup) {
 }
 
 func (h *AuthHandler) signIn(c *gin.Context) {
-	id, err := getParamUUID(c, "id")
-	if err != nil {
-		h.log.Debug("sign in failed: no id",
-			zap.String("client_ip", c.ClientIP()),
-			zap.Error(err),
-		)
-		handleError(c, err)
-		return
-	}
-
-	var password string
-	if err := c.ShouldBindJSON(&password); err != nil {
+	var signIn UserSignIn
+	if err := c.ShouldBindJSON(&signIn); err != nil {
 		h.log.Debug("sign in failed: invalid password",
 			zap.String("client_ip", c.ClientIP()),
 			zap.Error(err),
@@ -55,7 +46,7 @@ func (h *AuthHandler) signIn(c *gin.Context) {
 		return
 	}
 
-	user, err := h.svc.SignIn(c.Request.Context(), id, c.PostForm("password"))
+	user, err := h.svc.SignIn(c.Request.Context(), signIn.Email, signIn.Password)
 	if err != nil {
 		h.log.Debug("sign in failed: invalid credentials",
 			zap.String("client_ip", c.ClientIP()),
