@@ -63,9 +63,9 @@ func Start(frontendFS embed.FS) {
 	user_email := "danilrulv20@gmail.com"
 	svc.User.Create(context.Background(), &models.User{
 		ID:       uuid.NewString(),
-		FullName: "Rulev Danil USER",
+		FullName: "Rulev Danil STAFF",
 		Password: "12345678",
-		Role:     "user",
+		Role:     "staff",
 		Phone:    &user_phone,
 		Email:    &user_email,
 		IsActive: true,

@@ -43,13 +43,14 @@ func NewPhotoHandler(repo PhotoService, cfg config.PhotoConfig) *PhotoHandler {
 }
 
 func (h *PhotoHandler) RegisterRoutes(rg *gin.RouterGroup) {
-	// Загрузка и список — привязаны к оборудованию
 	rg.POST("/equipment/:id/photos", h.upload, requireRoles(adminKey))
 	rg.GET("/equipment/:id/photos", h.list)
-
-	// Отдача и удаление — по ID фото
-	rg.GET("/photos/:photo_id", h.serve)
 	rg.DELETE("/photos/:photo_id", h.delete, requireRoles(adminKey))
+}
+
+// Публичный маршрут — отдача файла (для <img src>)
+func (h *PhotoHandler) RegisterPublicRoutes(rg *gin.RouterGroup) {
+	rg.GET("/photos/:photo_id", h.serve)
 }
 
 // POST /equipment/:id/photos  (multipart/form-data, поле "photo")

@@ -83,7 +83,8 @@ func (h *Handler) InitRoutes() *gin.Engine {
 	// ── Публичные API-роуты (БЕЗ auth middleware) ──
 	public := router.Group("/api/v1")
 	{
-		h.auth.RegisterRoutes(public) // /api/v1/auth/signin, /refresh, /logout
+		h.auth.RegisterRoutes(public)
+		h.photo.RegisterPublicRoutes(public) // ← отдача фото без токена
 	}
 
 	// ── Защищённые API-роуты (С auth middleware) ──

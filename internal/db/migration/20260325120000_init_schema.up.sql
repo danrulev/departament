@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     password TEXT NOT NULL,
     role TEXT NOT NULL,            -- Роль: студент, преподаватель, сотрудник
     phone TEXT,                    -- Контактный телефон
-    email TEXT NOT NULL UNIQUE,           -- Email
+    email TEXT NOT NULL UNIQUE,    -- Email
     is_active BOOLEAN DEFAULT 1,   -- Активен ли пользователь (уволился/выпустился)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

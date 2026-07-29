@@ -819,6 +819,7 @@ async function showUserForm(id = null) {
         <form id="user-form">
             <div class="form-group"><label>ФИО <span class="required">*</span></label><input type="text" class="input" name="full_name" value="${UI.escape(user.full_name)}" required minlength="3"></div>
             <div class="form-group"><label>Роль <span class="required">*</span></label><select class="input" name="role" required>
+                <option value="student" ${user.role === 'admin' ? 'selected' : ''}>Админ</option>
                 <option value="student" ${user.role === 'student' ? 'selected' : ''}>Студент</option>
                 <option value="teacher" ${user.role === 'teacher' ? 'selected' : ''}>Преподаватель</option>
                 <option value="staff" ${user.role === 'staff' ? 'selected' : ''}>Сотрудник</option>
