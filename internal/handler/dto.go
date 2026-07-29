@@ -201,3 +201,43 @@ func ToEquipmentResponse(e *models.Equipment) EquipmentResponse {
 	}
 	return resp
 }
+
+// ─── DTO ───
+type ArticleAuthorDTO struct {
+	UserID *string `json:"user_id"`
+	Name   string  `json:"name" binding:"required,min=1"`
+}
+
+type CreateArticleRequest struct {
+	Title          string             `json:"title" binding:"required,min=1"`
+	Details        *string            `json:"details"`
+	Indexing       *string            `json:"indexing"`
+	WhiteListLevel *string            `json:"white_list_level"`
+	Funding        *string            `json:"funding"`
+	Link           *string            `json:"link"`
+	Status         string             `json:"status" binding:"required,oneof=planned submitted published"`
+	Authors        []ArticleAuthorDTO `json:"authors" binding:"required,min=1,dive"`
+}
+
+type UpdateArticleRequest = CreateArticleRequest
+
+type ArticleAuthorResponse struct {
+	ID     int64   `json:"id"`
+	UserID *string `json:"user_id,omitempty"`
+	Name   string  `json:"name"`
+}
+
+type ArticleResponse struct {
+	ID             int64                   `json:"id"`
+	Title          string                  `json:"title"`
+	Details        *string                 `json:"details,omitempty"`
+	Indexing       *string                 `json:"indexing,omitempty"`
+	WhiteListLevel *string                 `json:"white_list_level,omitempty"`
+	Funding        *string                 `json:"funding,omitempty"`
+	Link           *string                 `json:"link,omitempty"`
+	Status         string                  `json:"status"`
+	Authors        []ArticleAuthorResponse `json:"authors"`
+	CreatedBy      *string                 `json:"created_by,omitempty"`
+	CreatedAt      string                  `json:"created_at"`
+	UpdatedAt      string                  `json:"updated_at"`
+}

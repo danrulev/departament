@@ -118,6 +118,28 @@ class ApiClient {
     updateUser(id, data) { return this.request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
     deactivateUser(id)   { return this.request(`/users/${id}`, { method: 'DELETE' }); }
     getUserHistory(id)   { return this.request(`/users/${id}/history`); }
+    deleteUserAvatar(userId) { return this.request(`/users/${userId}/avatar`, { method: 'DELETE' }); }
+
+    async uploadUserAvatar(userId, file, _isRetry = false) {
+        const formData = new FormData();
+        formData.append('avatar', file);
+        const headers = {};
+        if (this.accessToken) headers['Authorization'] = `Bearer ${this.accessToken}`;
+
+        const res = await fetch(`${this.baseURL}/users/${userId}/avatar`, {
+            method: 'POST', credentials: 'include', headers, body: formData,
+        });
+        if (res.status === 401 && !_isRetry) {
+            const refreshed = await this.refresh();
+            if (refreshed) return this.uploadUserAvatar(userId, file, true);
+            this.clearToken();
+            window.dispatchEvent(new Event('auth:logout'));
+            throw new Error('Сессия истекла');
+        }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `Ошибка ${res.status}`);
+        return data;
+    }
 
     // ─── Keys ───
     getKeys(status = '') { return this.request(`/keys${status ? '?status=' + status : ''}`); }
@@ -178,29 +200,22 @@ class ApiClient {
         if (!res.ok) throw new Error(data.error || `Ошибка ${res.status}`);
         return data;
     }
-    // ─── User avatar ───
-    deleteUserAvatar(userId) { return this.request(`/users/${userId}/avatar`, { method: 'DELETE' }); }
 
-    async uploadUserAvatar(userId, file, _isRetry = false) {
-        const formData = new FormData();
-        formData.append('avatar', file);
-        const headers = {};
-        if (this.accessToken) headers['Authorization'] = `Bearer ${this.accessToken}`;
-
-        const res = await fetch(`${this.baseURL}/users/${userId}/avatar`, {
-            method: 'POST', credentials: 'include', headers, body: formData,
-        });
-        if (res.status === 401 && !_isRetry) {
-            const refreshed = await this.refresh();
-            if (refreshed) return this.uploadUserAvatar(userId, file, true);
-            this.clearToken();
-            window.dispatchEvent(new Event('auth:logout'));
-            throw new Error('Сессия истекла');
-        }
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || `Ошибка ${res.status}`);
-        return data;
+    // ─── Articles ───
+    getArticles(params = {}) {
+        const q = new URLSearchParams();
+        if (params.limit)     q.append('limit', params.limit);
+        if (params.offset)    q.append('offset', params.offset);
+        if (params.search)    q.append('search', params.search);
+        if (params.status)    q.append('status', params.status);
+        if (params.author_id) q.append('author_id', params.author_id); // ← НОВОЕ
+        const qs = q.toString();
+        return this.request(`/articles${qs ? '?' + qs : ''}`);
     }
+    getArticle(id)          { return this.request(`/articles/${id}`); }
+    createArticle(data)     { return this.request('/articles', { method: 'POST', body: JSON.stringify(data) }); }
+    updateArticle(id, data) { return this.request(`/articles/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
+    deleteArticle(id)       { return this.request(`/articles/${id}`, { method: 'DELETE' }); }
 }
 
 const api = new ApiClient(API_BASE);

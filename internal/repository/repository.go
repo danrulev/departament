@@ -6,6 +6,7 @@ import (
 )
 
 type Repository struct {
+	Article   *ArticleRepo
 	User      *UserRepo
 	Key       *KeyRepo
 	KeyLog    *KeyLogRepo
@@ -16,6 +17,7 @@ type Repository struct {
 
 func New(db *sqlx.DB, log *zap.Logger) *Repository {
 	return &Repository{
+		Article:   NewArticleRepo(db),
 		User:      NewUserRepo(db, log),
 		Key:       NewKeyRepo(db, log),
 		KeyLog:    NewKeyLogRepo(db, log),

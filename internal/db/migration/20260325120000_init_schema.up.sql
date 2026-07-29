@@ -80,3 +80,32 @@ CREATE TABLE IF NOT EXISTS equipment_photos (
 );
 
 CREATE INDEX IF NOT EXISTS idx_photos_equipment ON equipment_photos(equipment_id);
+
+CREATE TABLE IF NOT EXISTS articles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,                 -- Название публикации
+    details TEXT,                        -- Выходные данные
+    indexing TEXT,                       -- Индексирование (квартиль)
+    white_list_level TEXT,               -- Уровень белого списка
+    funding TEXT,                        -- Финансирование (ГЗ, РНФ...)
+    link TEXT,                           -- Ссылка
+    status TEXT NOT NULL DEFAULT 'planned', -- planned / submitted / published
+    created_by TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- Статьи ↔ Авторы (автор может быть сотрудником ИЛИ внешним)
+CREATE TABLE IF NOT EXISTS article_authors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_id INTEGER NOT NULL,
+    user_id TEXT,                        -- nullable: ссылка на сотрудника
+    name TEXT NOT NULL,                  -- отображаемое имя (всегда)
+    sort_order INTEGER DEFAULT 0,        -- порядок авторов
+    FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_article_authors_article ON article_authors(article_id);
+CREATE INDEX IF NOT EXISTS idx_articles_status ON articles(status);

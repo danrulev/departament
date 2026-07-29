@@ -40,6 +40,7 @@ type KeyService interface {
 
 type Handler struct {
 	auth      *AuthHandler
+	article   *ArticleHandler
 	user      *UserHandler
 	profile   *ProfileHandler
 	key       *KeyHandler
@@ -51,9 +52,10 @@ type Handler struct {
 	frontendFSReady bool
 }
 
-func New(authSvc AuthService, userSvc UserService, keySvc KeyService, equipmentSvc EquipmentService, photoSvc PhotoService, cfg *config.Config, log *zap.Logger) *Handler {
+func New(authSvc AuthService, articleSvc ArticleService, userSvc UserService, keySvc KeyService, equipmentSvc EquipmentService, photoSvc PhotoService, cfg *config.Config, log *zap.Logger) *Handler {
 	return &Handler{
 		auth:      NewAuthHandler(authSvc, cfg.Auth, log),
+		article:   NewArticleHandler(articleSvc),
 		user:      NewUserHandler(userSvc, keySvc, cfg.Photo),
 		profile:   NewProfileHandler(userSvc, cfg.Photo),
 		key:       NewKeyHandler(keySvc),
@@ -96,6 +98,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 	protected := router.Group("/api/v1", h.authMiddleware)
 	{
 		h.profile.RegisterRoutes(protected)
+		h.article.RegisterRoutes(protected)
 		h.key.RegisterRoutes(protected)
 		h.equipment.RegisterRoutes(protected)
 		h.photo.RegisterRoutes(protected)

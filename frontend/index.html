@@ -15,12 +15,10 @@
             <h1>Панель кафедры</h1>
             <p class="login-subtitle">Войдите для продолжения</p>
             <form id="login-form">
-                <div class="form-group">
-                    <label>Email</label>
+                <div class="form-group"><label>Email</label>
                     <input type="email" class="input" name="email" placeholder="user@university.ru" required>
                 </div>
-                <div class="form-group">
-                    <label>Пароль</label>
+                <div class="form-group"><label>Пароль</label>
                     <input type="password" class="input" name="password" placeholder="••••••••" required>
                 </div>
                 <div id="login-error" class="login-error"></div>
@@ -31,124 +29,185 @@
 
     <!-- ============ ОСНОВНОЕ ПРИЛОЖЕНИЕ ============ -->
     <div id="app" class="app-hidden">
-        <header class="header">
-            <div class="container">
-                <h1>🏛️ Панель кафедры</h1>
-                <div class="header-right">
-                    <button id="current-user-badge" class="user-chip" type="button"></button>
-                    <button class="btn btn-secondary btn-sm" id="btn-logout">Выйти</button>
-                </div>
+
+        <!-- ===== САЙДБАР ===== -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">🏛️ <span>Кафедра</span></div>
+                <button class="sidebar-close" id="sidebar-close" aria-label="Закрыть">&times;</button>
             </div>
-            <div class="container">
-                <nav class="tabs">
-                    <button class="tab active" data-page="equipment">Оборудование</button>
-                    <button class="tab" data-page="keys">Ключи</button>
-                    <button class="tab admin-only" data-page="users" style="display:none;">Пользователи</button>
-                </nav>
+
+            <nav class="sidebar-nav">
+                <div class="sidebar-section">Навигация</div>
+                <a href="#" class="sidebar-item active" data-page="equipment">
+                    <span class="sidebar-icon">🔧</span>
+                    <span class="sidebar-label">Оборудование</span>
+                </a>
+                <a href="#" class="sidebar-item" data-page="keys">
+                    <span class="sidebar-icon">🔑</span>
+                    <span class="sidebar-label">Ключи</span>
+                </a>
+                <a href="#" class="sidebar-item" data-page="articles">
+                    <span class="sidebar-icon">📄</span>
+                    <span class="sidebar-label">Статьи</span>
+                </a>
+                <a href="#" class="sidebar-item admin-only" data-page="users" style="display:none;">
+                    <span class="sidebar-icon">👥</span>
+                    <span class="sidebar-label">Пользователи</span>
+                </a>
+
+                <div class="sidebar-section">Личное</div>
+                <a href="#" class="sidebar-item" data-page="profile">
+                    <span class="sidebar-icon">👤</span>
+                    <span class="sidebar-label">Мой профиль</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button class="sidebar-item sidebar-logout" id="btn-logout">
+                    <span class="sidebar-icon">🚪</span>
+                    <span class="sidebar-label">Выйти</span>
+                </button>
             </div>
-        </header>
+        </aside>
 
-        <main class="container">
-            <!-- ===== ОБОРУДОВАНИЕ ===== -->
-            <section id="page-equipment" class="page active">
-                <div class="page-header">
-                    <h2>Оборудование</h2>
-                    <div class="actions">
-                        <input type="text" id="eq-search" class="input" placeholder="Поиск..." style="width:180px;">
-                        <input type="text" id="eq-inventory" class="input" placeholder="Инв. номер" style="width:130px;">
-                        <select id="eq-status-filter" class="input" style="width:140px;">
-                            <option value="">Все статусы</option>
-                            <option value="available">Доступно</option>
-                            <option value="unavailable">Недоступно</option>
-                        </select>
-                        <button class="btn btn-primary admin-only" id="btn-add-eq" style="display:none;">+ Добавить</button>
+        <!-- Оверлей для мобильных -->
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+        <!-- ===== ОСНОВНАЯ ОБЛАСТЬ ===== -->
+        <div class="main-wrapper">
+            <header class="header">
+                <div class="container">
+                    <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Меню">
+                        <span></span><span></span><span></span>
+                    </button>
+                    <h1 class="header-title">Панель кафедры</h1>
+                    <div class="header-right">
+                        <button id="current-user-badge" class="user-chip" type="button"></button>
                     </div>
                 </div>
-                <div style="margin-bottom:12px;">
-                    <button class="btn btn-warning btn-sm" id="btn-expired-verification">⚠️ Просрочена поверка</button>
-                </div>
-                <div class="table-wrapper">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Название</th>
-                                <th>Инв. №</th>
-                                <th>Локация</th>
-                                <th>Ответственный</th>
-                                <th>След. поверка</th>
-                                <th>Статус</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody id="equipment-table-body">
-                            <tr><td colspan="8" class="loading">Загрузка...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="pagination" id="eq-pagination"></div>
-            </section>
+            </header>
 
-            <!-- ===== КЛЮЧИ ===== -->
-            <section id="page-keys" class="page">
-                <div class="page-header">
-                    <h2>Ключи</h2>
-                    <div class="actions">
-                        <select id="key-status-filter" class="input" style="width:150px;">
-                            <option value="">Все статусы</option>
-                            <option value="available">Свободны</option>
-                            <option value="issued">Выданы</option>
-                            <option value="lost">Утеряны</option>
-                        </select>
-                        <button class="btn btn-primary admin-only" id="btn-add-key" style="display:none;">+ Добавить</button>
+            <main class="container">
+                <!-- ===== ОБОРУДОВАНИЕ ===== -->
+                <section id="page-equipment" class="page active">
+                    <div class="page-header">
+                        <h2>Оборудование</h2>
+                        <div class="actions">
+                            <input type="text" id="eq-search" class="input" placeholder="Поиск..." style="width:180px;">
+                            <input type="text" id="eq-inventory" class="input" placeholder="Инв. номер" style="width:130px;">
+                            <select id="eq-status-filter" class="input" style="width:140px;">
+                                <option value="">Все статусы</option>
+                                <option value="available">Доступно</option>
+                                <option value="unavailable">Недоступно</option>
+                            </select>
+                            <button class="btn btn-primary admin-only" id="btn-add-eq" style="display:none;">+ Добавить</button>
+                        </div>
                     </div>
-                </div>
-                <div class="table-wrapper">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Номер</th>
-                                <th>Помещение</th>
-                                <th>Статус</th>
-                                <th>Держатель</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody id="keys-table-body">
-                            <tr><td colspan="6" class="loading">Загрузка...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
+                    <div style="margin-bottom:12px;">
+                        <button class="btn btn-warning btn-sm" id="btn-expired-verification">⚠️ Просрочена поверка</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th><th>Название</th><th>Инв. №</th><th>Локация</th>
+                                    <th>Ответственный</th><th>След. поверка</th><th>Статус</th><th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="equipment-table-body">
+                                <tr><td colspan="8" class="loading">Загрузка...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="eq-pagination"></div>
+                </section>
 
-            <!-- ===== ПОЛЬЗОВАТЕЛИ ===== -->
-            <section id="page-users" class="page">
-                <div class="page-header">
-                    <h2>Пользователи</h2>
-                    <div class="actions">
-                        <button class="btn btn-primary admin-only" id="btn-add-user" style="display:none;">+ Добавить</button>
+                <!-- ===== КЛЮЧИ ===== -->
+                <section id="page-keys" class="page">
+                    <div class="page-header">
+                        <h2>Ключи</h2>
+                        <div class="actions">
+                            <select id="key-status-filter" class="input" style="width:150px;">
+                                <option value="">Все статусы</option>
+                                <option value="available">Свободны</option>
+                                <option value="issued">Выданы</option>
+                                <option value="lost">Утеряны</option>
+                            </select>
+                            <button class="btn btn-primary admin-only" id="btn-add-key" style="display:none;">+ Добавить</button>
+                        </div>
                     </div>
-                </div>
-                <div class="table-wrapper">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>ФИО</th>
-                                <th>Роль</th>
-                                <th>Телефон</th>
-                                <th>Email</th>
-                                <th>Статус</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody id="users-table-body">
-                            <tr><td colspan="6" class="loading">Загрузка...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </main>
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th><th>Номер</th><th>Помещение</th>
+                                    <th>Статус</th><th>Держатель</th><th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="keys-table-body">
+                                <tr><td colspan="6" class="loading">Загрузка...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- ===== СТАТЬИ ===== -->
+                <section id="page-articles" class="page">
+                    <div class="page-header">
+                        <h2>Публикации</h2>
+                        <div class="actions">
+                            <input type="text" id="art-search" class="input" placeholder="Поиск по названию..." style="width:220px;">
+                            <select id="art-status-filter" class="input" style="width:150px;">
+                                <option value="">Все статусы</option>
+                                <option value="planned">План</option>
+                                <option value="submitted">Подана</option>
+                                <option value="published">Вышла</option>
+                            </select>
+                            <button class="btn btn-primary" id="btn-add-article">+ Добавить</button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>№</th><th>Название / Авторы</th>
+                                    <th>Индексирование</th><th>Белый список</th>
+                                    <th>Статус</th><th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="articles-table-body">
+                                <tr><td colspan="6" class="loading">Загрузка...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="art-pagination"></div>
+                </section>
+
+                <!-- ===== ПОЛЬЗОВАТЕЛИ ===== -->
+                <section id="page-users" class="page">
+                    <div class="page-header">
+                        <h2>Пользователи</h2>
+                        <div class="actions">
+                            <button class="btn btn-primary admin-only" id="btn-add-user" style="display:none;">+ Добавить</button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ФИО</th><th>Роль</th><th>Телефон</th>
+                                    <th>Email</th><th>Статус</th><th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body">
+                                <tr><td colspan="6" class="loading">Загрузка...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </main>
+        </div>
     </div>
 
     <!-- Модалка -->
