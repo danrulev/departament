@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-
 	"mitm-departament/internal/models"
 
 	"github.com/google/uuid"
@@ -15,6 +14,7 @@ type UserRepo interface {
 	Create(ctx context.Context, u *models.User) error
 	GetByID(ctx context.Context, id string) (*models.User, error)
 	ListActive(ctx context.Context) ([]models.User, error)
+	SetAvatar(ctx context.Context, userID, filename string) error
 	Update(ctx context.Context, u *models.User) error
 }
 
@@ -107,4 +107,8 @@ func (s *UserService) Deactivate(ctx context.Context, id string) error {
 
 	u.IsActive = false
 	return s.Update(ctx, u)
+}
+
+func (s *UserService) SetAvatar(ctx context.Context, userID, filename string) error {
+	return s.repo.SetAvatar(ctx, userID, filename)
 }

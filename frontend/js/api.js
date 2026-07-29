@@ -107,6 +107,10 @@ class ApiClient {
         this.clearToken();
     }
 
+    // ─── Profile ───
+    getMe() { return this.request('/me'); }
+    avatarUrl(userId) { return `${this.baseURL}/avatars/${userId}`; }
+
     // ─── Users ───
     getUsers()           { return this.request('/users'); }
     getUser(id)          { return this.request(`/users/${id}`); }
@@ -170,6 +174,29 @@ class ApiClient {
             throw new Error('Сессия истекла');
         }
 
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `Ошибка ${res.status}`);
+        return data;
+    }
+    // ─── User avatar ───
+    deleteUserAvatar(userId) { return this.request(`/users/${userId}/avatar`, { method: 'DELETE' }); }
+
+    async uploadUserAvatar(userId, file, _isRetry = false) {
+        const formData = new FormData();
+        formData.append('avatar', file);
+        const headers = {};
+        if (this.accessToken) headers['Authorization'] = `Bearer ${this.accessToken}`;
+
+        const res = await fetch(`${this.baseURL}/users/${userId}/avatar`, {
+            method: 'POST', credentials: 'include', headers, body: formData,
+        });
+        if (res.status === 401 && !_isRetry) {
+            const refreshed = await this.refresh();
+            if (refreshed) return this.uploadUserAvatar(userId, file, true);
+            this.clearToken();
+            window.dispatchEvent(new Event('auth:logout'));
+            throw new Error('Сессия истекла');
+        }
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || `Ошибка ${res.status}`);
         return data;

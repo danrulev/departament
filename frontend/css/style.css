@@ -162,7 +162,6 @@ textarea.input { resize: vertical; min-height: 60px; }
 .table td.loading { text-align: center; color: var(--gray-500); padding: 40px; }
 .table .actions-cell { display: flex; gap: 6px; flex-wrap: wrap; }
 
-/* Подсветка недоступного оборудования */
 .row-unavailable { background: #fef2f2 !important; }
 .row-unavailable:hover { background: #fee2e2 !important; }
 .unavailable-reason {
@@ -408,6 +407,107 @@ textarea.input { resize: vertical; min-height: 60px; }
 .ep-error h2 { margin-bottom: 8px; }
 .ep-error p { color: var(--gray-500); margin-bottom: 20px; }
 
+/* ============================================================
+   СТРАНИЦА ПРОФИЛЯ
+   ============================================================ */
+.pf-container { max-width: 900px; margin: 0 auto; }
+
+.pf-header {
+    background: white;
+    border-radius: 14px;
+    border: 1px solid var(--gray-100);
+    box-shadow: var(--shadow);
+    padding: 28px 32px;
+    display: flex;
+    gap: 28px;
+    align-items: center;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+    animation: epFadeUp .4s ease both;
+}
+.pf-header::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 5px;
+    background: linear-gradient(180deg, var(--primary), var(--primary-hover));
+}
+
+.pf-avatar { position: relative; width: 120px; height: 120px; flex-shrink: 0; }
+.pf-avatar img, .pf-avatar .pf-initials {
+    width: 120px; height: 120px; border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid white;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.2), var(--shadow);
+}
+.pf-initials {
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+    color: white; font-size: 40px; font-weight: 800;
+}
+
+.pf-identity { flex: 1; min-width: 0; }
+.pf-role-line { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.pf-role {
+    background: rgba(37,99,235,0.1);
+    color: var(--primary);
+    padding: 3px 12px; border-radius: 20px;
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+}
+.pf-active { color: var(--success); font-size: 13px; font-weight: 600; }
+.pf-inactive { color: var(--gray-500); font-size: 13px; }
+.pf-name { font-size: 30px; font-weight: 800; letter-spacing: -.3px; margin-bottom: 4px; }
+.pf-position { color: var(--gray-700); font-size: 15px; font-weight: 500; margin-bottom: 8px; }
+.pf-contacts { display: flex; gap: 18px; flex-wrap: wrap; color: var(--gray-500); font-size: 14px; }
+
+.pf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.pf-grid .ep-card { animation: epFadeUp .4s ease both; }
+.pf-grid .ep-card:nth-child(1) { animation-delay: .08s; }
+.pf-grid .ep-card:nth-child(2) { animation-delay: .16s; }
+
+.pf-service {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px; border-radius: 10px;
+    border: 1px solid var(--gray-100);
+    margin-bottom: 12px;
+    transition: all .2s;
+}
+.pf-service:last-child { margin-bottom: 0; }
+.pf-service:hover { border-color: var(--primary); transform: translateX(4px); box-shadow: var(--shadow); }
+.pf-service-icon { font-size: 26px; }
+.pf-service-body { flex: 1; }
+.pf-service-name { font-weight: 700; font-size: 14px; }
+.pf-service-desc { font-size: 12px; color: var(--gray-500); }
+.pf-soon {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    color: var(--warning); background: rgba(217,119,6,0.1);
+    padding: 3px 10px; border-radius: 12px;
+}
+
+@media (max-width: 800px) {
+    .pf-header { flex-direction: column; text-align: center; }
+    .pf-contacts, .pf-role-line { justify-content: center; }
+    .pf-grid { grid-template-columns: 1fr; }
+}
+
+/* ===== Чип пользователя в шапке ===== */
+.user-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--gray-100);
+    border: none; border-radius: 20px;
+    padding: 4px 14px 4px 4px;
+    cursor: pointer;
+    transition: all .2s;
+}
+.user-chip:hover { background: var(--gray-200); transform: translateY(-1px); }
+.user-chip-avatar, .user-chip-initials { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+.user-chip-initials {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--primary); color: white; font-size: 12px; font-weight: 700;
+}
+.user-chip-name { font-size: 13px; font-weight: 600; color: var(--gray-700); }
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
     .header .container { flex-direction: column; align-items: flex-start; }
@@ -419,3 +519,16 @@ textarea.input { resize: vertical; min-height: 60px; }
     .page-header .actions select,
     .page-header .actions button { width: 100%; }
 }
+
+/* ===== Редактор аватара в форме ===== */
+.avatar-editor { display: flex; align-items: center; gap: 16px; }
+.avatar-preview { width: 72px; height: 72px; flex-shrink: 0; }
+.avatar-preview img, .avatar-preview-initials {
+    width: 72px; height: 72px; border-radius: 50%; object-fit: cover;
+    border: 1px solid var(--gray-200);
+}
+.avatar-preview-initials {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--primary); color: white; font-size: 24px; font-weight: 700;
+}
+.avatar-controls { display: flex; flex-direction: column; gap: 8px; }

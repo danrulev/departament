@@ -38,7 +38,7 @@ type PhotoService interface {
 
 func NewPhotoHandler(repo PhotoService, cfg config.PhotoConfig) *PhotoHandler {
 	// Создаём папку для фото при старте
-	_ = os.MkdirAll(cfg.PhotoDir, 0755)
+	_ = os.MkdirAll(cfg.EquipmentPhotoDir, 0755)
 	return &PhotoHandler{repo: repo, cfg: cfg}
 }
 
@@ -94,7 +94,7 @@ func (h *PhotoHandler) upload(c *gin.Context) {
 
 	// Сохраняем на диск
 	storedName := uuid.New().String() + ext
-	dst := filepath.Join(h.cfg.PhotoDir, storedName)
+	dst := filepath.Join(h.cfg.EquipmentPhotoDir, storedName)
 
 	out, err := os.Create(dst)
 	if err != nil {
@@ -163,7 +163,7 @@ func (h *PhotoHandler) serve(c *gin.Context) {
 		return
 	}
 
-	filePath := filepath.Join(h.cfg.PhotoDir, photo.StoredName)
+	filePath := filepath.Join(h.cfg.EquipmentPhotoDir, photo.StoredName)
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		c.JSON(http.StatusNotFound, ErrorResponse{Error: "файл отсутствует на диске"})
 		return
@@ -187,7 +187,7 @@ func (h *PhotoHandler) delete(c *gin.Context) {
 	}
 
 	// Удаляем файл
-	filePath := filepath.Join(h.cfg.PhotoDir, photo.StoredName)
+	filePath := filepath.Join(h.cfg.EquipmentPhotoDir, photo.StoredName)
 	_ = os.Remove(filePath)
 
 	// Удаляем из БД

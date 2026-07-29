@@ -33,9 +33,15 @@ func (h *EquipmentHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		equipment.POST("", h.create, requireRoles(adminKey))
 		equipment.GET("", h.list)
 		equipment.GET("/expired-verification", h.listExpiredVerification)
-		equipment.GET("/:id", h.getByID)
 		equipment.PUT("/:id", h.update, requireRoles(adminKey))
 		equipment.DELETE("/:id", h.delete, requireRoles(adminKey))
+	}
+}
+
+func (h *EquipmentHandler) RegisterPublicRoutes(rg *gin.RouterGroup) {
+	equipment := rg.Group("/equipment")
+	{
+		equipment.GET("/:id", h.getByID)
 	}
 }
 

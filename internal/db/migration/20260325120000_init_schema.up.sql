@@ -3,9 +3,11 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
+    avatar TEXT,
     full_name TEXT NOT NULL,       -- ФИО
     password TEXT NOT NULL,
-    role TEXT NOT NULL,            -- Роль: студент, преподаватель, сотрудник
+    role TEXT NOT NULL,            -- Роль: студент, преподаватель, сотрудник, админ
+    position TEXT,
     phone TEXT,                    -- Контактный телефон
     email TEXT NOT NULL UNIQUE,    -- Email
     is_active BOOLEAN DEFAULT 1,   -- Активен ли пользователь (уволился/выпустился)

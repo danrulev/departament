@@ -5,16 +5,20 @@ import "mitm-departament/internal/models"
 // ========== Users ==========
 
 type CreateUserRequest struct {
+	Avatar   *string `json:"avatar"`
 	FullName string  `json:"full_name" binding:"required,min=3"`
 	Password string  `json:"password" binding:"omitempty,min=8"`
-	Role     string  `json:"role" binding:"required,oneof=student teacher staff"`
+	Role     string  `json:"role" binding:"required,oneof=student teacher staff admin"`
+	Position *string `json:"position"`
 	Phone    *string `json:"phone"`
 	Email    *string `json:"email" binding:"omitempty,email"`
 }
 
 type UpdateUserRequest struct {
+	Avatar   *string `json:"avatar"`
 	FullName string  `json:"full_name" binding:"required,min=3"`
-	Role     string  `json:"role" binding:"required,oneof=student teacher staff"`
+	Role     string  `json:"role" binding:"required,oneof=student teacher staff admin"`
+	Position *string `json:"position"`
 	Phone    *string `json:"phone"`
 	Email    *string `json:"email" binding:"omitempty,email"`
 	IsActive *bool   `json:"is_active"`
@@ -27,8 +31,10 @@ type UserSignIn struct {
 
 type UserResponse struct {
 	ID        string  `json:"id"`
+	Avatar    *string `json:"avatar"`
 	FullName  string  `json:"full_name"`
 	Role      string  `json:"role"`
+	Position  *string `json:"position"`
 	Phone     *string `json:"phone,omitempty"`
 	Email     *string `json:"email,omitempty"`
 	IsActive  bool    `json:"is_active"`
@@ -36,10 +42,16 @@ type UserResponse struct {
 }
 
 func ToUserResponse(u *models.User) UserResponse {
+	avatar := ""
+	if u.Avatar != nil && *u.Avatar != "" {
+		avatar = "/api/v1/avatars/" + u.ID
+	}
 	return UserResponse{
 		ID:        u.ID,
+		Avatar:    &avatar,
 		FullName:  u.FullName,
 		Role:      u.Role,
+		Position:  u.Position,
 		Phone:     u.Phone,
 		Email:     u.Email,
 		IsActive:  u.IsActive,

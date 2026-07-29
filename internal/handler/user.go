@@ -1,8 +1,12 @@
 package handler
 
 import (
+	"io"
+	"mitm-departament/internal/config"
 	"mitm-departament/internal/models"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 )
@@ -10,12 +14,15 @@ import (
 type UserHandler struct {
 	userSvc UserService
 	keySvc  KeyService
+	cfg     config.PhotoConfig
 }
 
-func NewUserHandler(userSvc UserService, keySvc KeyService) *UserHandler {
+func NewUserHandler(userSvc UserService, keySvc KeyService, cfg config.PhotoConfig) *UserHandler {
+	_ = os.MkdirAll(cfg.AvatarPhotoDir, 0755)
 	return &UserHandler{
 		userSvc: userSvc,
 		keySvc:  keySvc,
+		cfg:     cfg,
 	}
 }
 
@@ -28,6 +35,8 @@ func (h *UserHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		users.PUT("/:id", h.Update, requireRoles(adminKey))
 		users.DELETE("/:id", h.Deactivate, requireRoles(adminKey))
 		users.GET("/:id/history", h.History)
+		users.POST("/:id/avatar", h.UploadAvatar, requireRoles(adminKey))   // ← новое
+		users.DELETE("/:id/avatar", h.DeleteAvatar, requireRoles(adminKey)) // ← новое
 	}
 }
 
@@ -39,9 +48,11 @@ func (h *UserHandler) Create(c *gin.Context) {
 	}
 
 	user := &models.User{
+		Avatar:   req.Avatar,
 		FullName: req.FullName,
 		Password: req.Password,
 		Role:     req.Role,
+		Position: req.Position,
 		Phone:    req.Phone,
 		Email:    req.Email,
 		IsActive: true,
@@ -104,6 +115,8 @@ func (h *UserHandler) Update(c *gin.Context) {
 	if req.IsActive != nil {
 		user.IsActive = *req.IsActive
 	}
+	user.Position = req.Position
+	user.Avatar = req.Avatar
 
 	if err := h.userSvc.Update(c.Request.Context(), user); err != nil {
 		handleError(c, err)
@@ -144,4 +157,81 @@ func (h *UserHandler) History(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, resp)
+}
+
+func (h *UserHandler) UploadAvatar(c *gin.Context) {
+	id := c.Param("id")
+
+	user, err := h.userSvc.GetByID(c.Request.Context(), id)
+	if err != nil || user == nil {
+		c.JSON(http.StatusNotFound, ErrorResponse{Error: "пользователь не найден"})
+		return
+	}
+
+	file, header, err := c.Request.FormFile("avatar")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "поле 'avatar' обязательно"})
+		return
+	}
+	defer file.Close()
+
+	if header.Size > int64(h.cfg.MaxPhotoSize) {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "файл слишком большой (макс. 5 МБ)"})
+		return
+	}
+
+	contentType := header.Header.Get("Content-Type")
+	ext, ok := allowedTypes[contentType] // из photo.go
+	if !ok {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "допустимы: JPEG, PNG, WebP, GIF"})
+		return
+	}
+
+	// Удаляем старый файл
+	if user.Avatar != nil && *user.Avatar != "" {
+		_ = os.Remove(filepath.Join(h.cfg.AvatarPhotoDir, *user.Avatar))
+	}
+
+	storedName := "avatar_" + id + ext
+	dst := filepath.Join(h.cfg.AvatarPhotoDir, storedName)
+
+	out, err := os.Create(dst)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "ошибка сохранения"})
+		return
+	}
+	defer out.Close()
+	if _, err := io.Copy(out, file); err != nil {
+		os.Remove(dst)
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "ошибка записи"})
+		return
+	}
+
+	if err := h.userSvc.SetAvatar(c.Request.Context(), id, storedName); err != nil {
+		os.Remove(dst)
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"avatar": "/api/v1/avatars/" + id})
+}
+
+func (h *UserHandler) DeleteAvatar(c *gin.Context) {
+	id := c.Param("id")
+
+	user, err := h.userSvc.GetByID(c.Request.Context(), id)
+	if err != nil || user == nil {
+		c.JSON(http.StatusNotFound, ErrorResponse{Error: "пользователь не найден"})
+		return
+	}
+
+	if user.Avatar != nil && *user.Avatar != "" {
+		_ = os.Remove(filepath.Join(h.cfg.AvatarPhotoDir, *user.Avatar))
+	}
+	if err := h.userSvc.SetAvatar(c.Request.Context(), id, ""); err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, MessageResponse{Message: "аватар удалён"})
 }

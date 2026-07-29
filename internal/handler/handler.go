@@ -17,6 +17,7 @@ type UserService interface {
 	Create(ctx context.Context, u *models.User) error
 	GetByID(ctx context.Context, id string) (*models.User, error)
 	ListActive(ctx context.Context) ([]models.User, error)
+	SetAvatar(ctx context.Context, userID, filename string) error
 	Update(ctx context.Context, u *models.User) error
 	Deactivate(ctx context.Context, id string) error
 }
@@ -40,6 +41,7 @@ type KeyService interface {
 type Handler struct {
 	auth      *AuthHandler
 	user      *UserHandler
+	profile   *ProfileHandler
 	key       *KeyHandler
 	equipment *EquipmentHandler
 	photo     *PhotoHandler
@@ -52,7 +54,8 @@ type Handler struct {
 func New(authSvc AuthService, userSvc UserService, keySvc KeyService, equipmentSvc EquipmentService, photoSvc PhotoService, cfg *config.Config, log *zap.Logger) *Handler {
 	return &Handler{
 		auth:      NewAuthHandler(authSvc, cfg.Auth, log),
-		user:      NewUserHandler(userSvc, keySvc),
+		user:      NewUserHandler(userSvc, keySvc, cfg.Photo),
+		profile:   NewProfileHandler(userSvc, cfg.Photo),
 		key:       NewKeyHandler(keySvc),
 		equipment: NewEquipmentHandler(equipmentSvc),
 		photo:     NewPhotoHandler(photoSvc, cfg.Photo),
@@ -85,11 +88,14 @@ func (h *Handler) InitRoutes() *gin.Engine {
 	{
 		h.auth.RegisterRoutes(public)
 		h.photo.RegisterPublicRoutes(public) // ← отдача фото без токена
+		h.profile.RegisterPublicRoutes(public)
+		h.equipment.RegisterPublicRoutes(public)
 	}
 
 	// ── Защищённые API-роуты (С auth middleware) ──
 	protected := router.Group("/api/v1", h.authMiddleware)
 	{
+		h.profile.RegisterRoutes(protected)
 		h.key.RegisterRoutes(protected)
 		h.equipment.RegisterRoutes(protected)
 		h.photo.RegisterRoutes(protected)
