@@ -23,15 +23,15 @@ func NewEquipmentRepo(db *sqlx.DB, log *zap.Logger) *EquipmentRepo {
 
 // equipmentColumns — список колонок для SELECT (без JOIN)
 const equipmentColumns = `id, name, description, location, documentation, inventory_number,
-	responsible_id, status, verification_date, created_at, updated_at`
+	responsible_id, status, unavailable_reason, last_verification_date, next_verification_date, created_at, updated_at`
 
 // Create создаёт единицу оборудования
 func (r *EquipmentRepo) Create(ctx context.Context, e *models.Equipment) error {
 	res, err := r.db.NamedExecContext(ctx,
 		`INSERT INTO equipment 
-			(name, description, location, documentation, inventory_number, responsible_id, status, unavailable_reason, verification_date)
+			(name, description, location, documentation, inventory_number, responsible_id, status, unavailable_reason, last_verification_date, next_verification_date)
 		 VALUES 
-			(:name, :description, :location, :documentation, :inventory_number, :responsible_id, :status, :unavailable_reason, :verification_date)`, e)
+			(:name, :description, :location, :documentation, :inventory_number, :responsible_id, :status, :unavailable_reason, :last_verification_date, :next_verification_date)`, e)
 	if err != nil {
 		return fmt.Errorf("insert equipment: %w", err)
 	}
@@ -126,7 +126,7 @@ func (r *EquipmentRepo) List(ctx context.Context, f models.EquipmentFilter) ([]m
 // ListExpiredVerification возвращает оборудование с просроченной поверкой
 func (r *EquipmentRepo) ListExpiredVerification(ctx context.Context, limit, offset int64) ([]models.Equipment, int64, error) {
 	var total int64
-	countQuery := `SELECT COUNT(*) FROM equipment WHERE verification_date IS NOT NULL AND verification_date < DATE('now')`
+	countQuery := `SELECT COUNT(*) FROM equipment WHERE next_verification_date IS NOT NULL AND next_verification_date < DATE('now')`
 	if err := r.db.GetContext(ctx, &total, countQuery); err != nil {
 		return nil, 0, fmt.Errorf("count equipment: %w", err)
 	}
@@ -138,8 +138,8 @@ func (r *EquipmentRepo) ListExpiredVerification(ctx context.Context, limit, offs
 	var items []models.Equipment
 	err := r.db.SelectContext(ctx, &items,
 		`SELECT `+equipmentColumns+` FROM equipment 
-		 WHERE verification_date IS NOT NULL AND verification_date < DATE('now')
-		 ORDER BY verification_date`)
+		 WHERE next_verification_date IS NOT NULL AND next_verification_date < DATE('now')
+		 ORDER BY next_verification_date`)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list expired verification: %w", err)
 	}
@@ -158,7 +158,8 @@ func (r *EquipmentRepo) Update(ctx context.Context, e *models.Equipment) error {
 			responsible_id = :responsible_id,
 			status = :status,
 			unavailable_reason = :unavailable_reason,
-			verification_date = :verification_date,
+			last_verification_date = :last_verification_date,
+			next_verification_date = :next_verification_date,
 			updated_at = CURRENT_TIMESTAMP
 		 WHERE id = :id`, e)
 	if err != nil {

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"mitm-departament/internal/config"
 	"mitm-departament/internal/models"
 	"net/http"
 
@@ -19,17 +20,18 @@ type AuthService interface {
 
 type AuthHandler struct {
 	svc AuthService
+	cfg config.AuthCfg
 	log *zap.Logger
 }
 
-func NewAuthHandler(svc AuthService, log *zap.Logger) *AuthHandler {
-	return &AuthHandler{svc: svc, log: log}
+func NewAuthHandler(svc AuthService, cfg config.AuthCfg, log *zap.Logger) *AuthHandler {
+	return &AuthHandler{svc: svc, cfg: cfg, log: log}
 }
 
 func (h *AuthHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	auth := rg.Group("/auth")
 	{
-		auth.POST("/:id", h.signIn)
+		auth.POST("/signin", h.signIn) // ← фикс
 		auth.POST("/refresh", h.refresh)
 		auth.POST("/logout", h.logout)
 	}
@@ -56,7 +58,15 @@ func (h *AuthHandler) signIn(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie(refreshToken, user.RefreshToken, 36000, "/", "", false, true)
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     refreshToken,
+		Value:    user.RefreshToken,
+		MaxAge:   int(h.cfg.RefreshTokenTTL),
+		Path:     "/",
+		Secure:   false, // только HTTPS
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
 	c.JSON(http.StatusOK, gin.H{accessToken: user.AccessToken})
 }
 
@@ -112,6 +122,14 @@ func (h *AuthHandler) refresh(c *gin.Context) {
 		zap.String("client_ip", c.ClientIP()),
 	)
 
-	c.SetCookie(refreshToken, token.RefreshToken, 36000, "/", "", false, true)
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     refreshToken,
+		Value:    token.RefreshToken,
+		MaxAge:   int(h.cfg.RefreshTokenTTL),
+		Path:     "/",
+		Secure:   false, // только HTTPS
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
 	c.JSON(http.StatusOK, gin.H{accessToken: token.AccessToken})
 }

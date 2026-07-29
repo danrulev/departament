@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     password TEXT NOT NULL,
     role TEXT NOT NULL,            -- Роль: студент, преподаватель, сотрудник
     phone TEXT,                    -- Контактный телефон
-    email TEXT NOT NULL,           -- Email
+    email TEXT NOT NULL UNIQUE,           -- Email
     is_active BOOLEAN DEFAULT 1,   -- Активен ли пользователь (уволился/выпустился)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -55,9 +55,26 @@ CREATE TABLE IF NOT EXISTS equipment(
     responsible_id TEXT NOT NULL, -- ОТВЕТСТВЕННЫЙ
     status BOOLEAN DEFAULT 1, -- Статус: 1 - ДОСТУПЕН, 0 - НЕ ДОСТУПЕН
     unavailable_reason TEXT,
-    verification_date DATE, -- ДАТА ПОВЕРКИ
+    last_verification_date DATE, -- ДАТА ПОВЕРКИ
+    next_verification_date DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (responsible_id) REFERENCES users(id)
 );
 
+-- internal/db/migration/20260729100000_add_equipment_photos.up.sql
+
+CREATE TABLE IF NOT EXISTS equipment_photos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    equipment_id INTEGER NOT NULL,
+    filename TEXT NOT NULL,          -- оригинальное имя файла
+    stored_name TEXT NOT NULL,       -- имя на диске (UUID)
+    content_type TEXT NOT NULL,      -- image/jpeg, image/png
+    size_bytes INTEGER NOT NULL,
+    uploaded_by TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (equipment_id) REFERENCES equipment(id) ON DELETE CASCADE,
+    FOREIGN KEY (uploaded_by) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_photos_equipment ON equipment_photos(equipment_id);

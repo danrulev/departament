@@ -10,6 +10,7 @@ type Repository struct {
 	Key       *KeyRepo
 	KeyLog    *KeyLogRepo
 	Equipment *EquipmentRepo
+	Photo     *PhotoRepo
 	Token     *TokenR
 }
 
@@ -19,6 +20,7 @@ func New(db *sqlx.DB, log *zap.Logger) *Repository {
 		Key:       NewKeyRepo(db, log),
 		KeyLog:    NewKeyLogRepo(db, log),
 		Equipment: NewEquipmentRepo(db, log),
+		Photo:     NewPhotoRepo(db, log),
 		Token:     NewTokenRepository(db, log),
 	}
 }

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lestrrat-go/jwx/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"go.uber.org/zap"
@@ -52,6 +52,7 @@ func NewAuthService(
 func (a *AuthS) SignIn(ctx context.Context, email, password string) (models.TokenOutput, error) {
 	user, err := a.userRepo.GetCredentials(ctx, email)
 	if err != nil {
+		a.log.Error("failed to get credentials", zap.String("email", email), zap.Error(err))
 		return models.TokenOutput{}, err
 	}
 
@@ -105,7 +106,7 @@ func (a *AuthS) generateTokens(userID, role string) (string, models.Token, error
 		return "", models.Token{}, err
 	}
 
-	refreshToken := a.generateRefreshToken(userID)
+	refreshToken := a.generateRefreshToken(userID, role)
 	return accessToken, refreshToken, nil
 }
 
@@ -144,9 +145,10 @@ func (a *AuthS) generateAccessToken(userID, role string) (string, error) {
 	return string(signed), nil
 }
 
-func (a *AuthS) generateRefreshToken(userID string) models.Token {
+func (a *AuthS) generateRefreshToken(userID, role string) models.Token {
 	return models.Token{
 		UserID:    userID,
+		Role:      role,
 		TokenID:   uuid.New().String(),
 		ExpiresAt: time.Now().Add(a.token.RefreshTokenTTL),
 	}
@@ -158,20 +160,26 @@ func (a *AuthS) ParseToken(_ context.Context, accessToken string) (string, strin
 		jwt.WithValidate(true),
 	)
 	if err != nil {
+		a.log.Debug("JWT parse failed", zap.Error(err))
 		return "", "", fmt.Errorf("invalid token")
 	}
 
 	userID := verified.Subject()
+	a.log.Debug("JWT parsed", zap.String("sub", userID))
+
 	if _, err := uuid.Parse(userID); err != nil {
+		a.log.Debug("sub is not UUID", zap.String("sub", userID))
 		return "", "", fmt.Errorf("invalid token")
 	}
 
 	roleRaw, ok := verified.Get("role")
 	if !ok {
+		a.log.Debug("no role claim in JWT")
 		return "", "", fmt.Errorf("invalid token")
 	}
 	role, ok := roleRaw.(string)
 	if !ok || role == "" {
+		a.log.Debug("empty role claim")
 		return "", "", fmt.Errorf("invalid token")
 	}
 

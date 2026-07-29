@@ -32,6 +32,12 @@ type DBConfig struct {
 	ExportDir string `mapstructure:"export_dir" validate:"required"`
 }
 
+type PhotoConfig struct {
+	PhotoDir     string `mapstructure:"photo_dir" validate:"required"`
+	MaxPhotoSize int    `mapstructure:"max_photo_size" validate:"required"`
+	MaxPhotos    int    `mapstructure:"max_photos" validate:"required"`
+}
+
 // LoggerConfig настройки логгера (совместим с zap.Config)
 type LoggerConfig struct {
 	Level             string   `mapstructure:"level" validate:"oneof=debug info warn error dpanic panic fatal"`
@@ -55,7 +61,9 @@ type ServerConfig struct {
 // Config корневая структура конфигурации
 type Config struct {
 	App    AppConfig    `mapstructure:"app"`
+	Auth   AuthCfg      `mapstructure:"auth"`
 	DB     DBConfig     `mapstructure:"db"`
+	Photo  PhotoConfig  `mapstructure:"photo"`
 	Logger LoggerConfig `mapstructure:"logger"`
 	Server ServerConfig `mapstructure:"server"`
 }

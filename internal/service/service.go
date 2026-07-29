@@ -1,6 +1,7 @@
 package service
 
 import (
+	"mitm-departament/internal/config"
 	"mitm-departament/pkg/hasher"
 
 	"github.com/jmoiron/sqlx"
@@ -13,24 +14,32 @@ type HasherI interface {
 }
 
 type Service struct {
+	Auth      *AuthS
 	User      *UserService
 	Key       *KeyService
 	Equipment *EquipmentService
+	Photo     *PhotoService
 }
 
 func New(
 	db *sqlx.DB,
+	authUserRepo AuthUserRepo,
+	tokenRepo TokeRepo,
 	userRepo UserRepo,
 	keyRepo KeyRepo,
 	keyLogRepo KeyLogRepo,
 	equipmentRepo EquipmentRepo,
+	photo PhotoRepo,
 
+	token config.AuthCfg,
 	log *zap.Logger,
 ) *Service {
 	hasher := hasher.NewHasher()
 	return &Service{
+		Auth:      NewAuthService(authUserRepo, tokenRepo, token, hasher, log),
 		User:      NewUserService(userRepo, hasher, log),
 		Key:       NewKeyService(keyRepo, keyLogRepo, db, log),
 		Equipment: NewEquipmentService(equipmentRepo, log),
+		Photo:     NewPhotoService(photo, log),
 	}
 }

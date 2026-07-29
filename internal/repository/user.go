@@ -50,14 +50,14 @@ func (r *UserRepo) GetByID(ctx context.Context, id string) (*models.User, error)
 }
 
 func (r *UserRepo) GetCredentials(ctx context.Context, email string) (*models.User, error) {
-	var password string
-	err := r.db.GetContext(ctx, &password,
-		`SELECT password FROM users WHERE email = ?`, email)
+	u := &models.User{}
+	err := r.db.GetContext(ctx, u,
+		`SELECT id, full_name, password, role, phone, email, is_active, created_at
+         FROM users WHERE email = ? AND is_active = 1`, email)
 	if err != nil {
-		return nil, fmt.Errorf("get user credentials: %w", err)
+		return nil, fmt.Errorf("invalid credentials")
 	}
-
-	return &models.User{ID: email, Password: password}, nil
+	return u, nil
 }
 
 // ListActive возвращает всех активных пользователей

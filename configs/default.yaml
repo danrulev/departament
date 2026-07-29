@@ -3,6 +3,16 @@ app:
   version: "0.1.0"
   env: "development"
 
+auth:
+  access_token_ttl: 15m
+  refresh_token_ttl: 240h
+  jwt_secret: "secret"
+
+photo:
+  photo_dir: "./data/photos"
+  max_photo_size: 10485760
+  max_photos: 10
+
 db:
   local_path: "./data/depatrament_data.db"
   data_dir: "./data"

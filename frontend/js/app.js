@@ -8,20 +8,15 @@ const UI = {
         toast.className = `toast toast-${type}`;
         toast.textContent = message;
         container.appendChild(toast);
-        setTimeout(() => {
-            toast.style.animation = 'slideIn 0.3s ease reverse';
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
+        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
     },
-    openModal(title, bodyHTML) {
+    openModal(title, html) {
         document.getElementById('modal-title').textContent = title;
-        document.getElementById('modal-body').innerHTML = bodyHTML;
+        document.getElementById('modal-body').innerHTML = html;
         document.getElementById('modal-overlay').classList.add('active');
     },
-    closeModal() {
-        document.getElementById('modal-overlay').classList.remove('active');
-    },
-    confirm(message) { return window.confirm(message); },
+    closeModal() { document.getElementById('modal-overlay').classList.remove('active'); },
+    confirm(msg) { return window.confirm(msg); },
     escape(str) {
         if (str == null) return '';
         const d = document.createElement('div');
@@ -30,21 +25,32 @@ const UI = {
     },
     formatDate(dateStr) {
         if (!dateStr) return '—';
-        const d = new Date(dateStr);
-        return d.toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+        return new Date(dateStr).toLocaleString('ru-RU', {
+            day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+    },
+    formatDateShort(dateStr) {
+        if (!dateStr) return '—';
+        return new Date(dateStr).toLocaleDateString('ru-RU');
+    },
+    formatSize(bytes) {
+        if (!bytes) return '';
+        if (bytes < 1024) return bytes + ' Б';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' КБ';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' МБ';
     },
     roleName(role) {
-        return { student:'Студент', teacher:'Преподаватель', staff:'Сотрудник' }[role] || role;
+        return { student: 'Студент', teacher: 'Преподаватель', staff: 'Сотрудник', admin: 'Админ' }[role] || role;
     },
-    statusName(status) {
-        return { available:'Свободен', issued:'Выдан', lost:'Утерян' }[status] || status;
+    statusName(s) {
+        return { available: 'Свободен', issued: 'Выдан', lost: 'Утерян' }[s] || s;
     },
-    actionName(action) {
-        return { issue:'Выдача', return:'Возврат', lost:'Утеря' }[action] || action;
+    actionName(a) {
+        return { issue: 'Выдача', return: 'Возврат', lost: 'Утеря' }[a] || a;
     },
 };
 
-// Закрытие модалки
+// Модалка: закрытие
 document.getElementById('modal-overlay').addEventListener('click', e => {
     if (e.target.id === 'modal-overlay') UI.closeModal();
 });
@@ -52,20 +58,118 @@ document.getElementById('modal-close').addEventListener('click', () => UI.closeM
 document.addEventListener('keydown', e => { if (e.key === 'Escape') UI.closeModal(); });
 
 // ============================================================
-// =================== ГЛОБАЛЬНОЕ СОСТОЯНИЕ ===================
+// ==================== СОСТОЯНИЕ AUTH ========================
 // ============================================================
-const eqState = { limit: 10, offset: 0, search: '', inventory: '', status: '', total: 0, isExpiredMode: false };
+let currentUser = null; // { userId, role }
+
+function isAdmin() { return currentUser && currentUser.role === 'admin'; }
+
+function applyRBAC() {
+    document.querySelectorAll('.admin-only').forEach(el => {
+        el.style.display = isAdmin() ? '' : 'none';
+    });
+}
+
+function showApp() {
+    document.getElementById('login-screen').style.display = 'none';
+    const app = document.getElementById('app');
+    app.classList.remove('app-hidden');
+    app.style.display = ''; // сброс инлайн-display от страницы оборудования
+    const badge = document.getElementById('current-user-badge');
+    badge.textContent = UI.roleName(currentUser.role);
+    badge.title = currentUser.userId;
+    applyRBAC();
+}
+
+function showLogin() {
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app').classList.add('app-hidden');
+    currentUser = null;
+}
+
+// Общий выход (используется в шапке и на странице карточки)
+async function doLogout() {
+    await api.logout();
+    window.location.hash = '';
+    showLogin();
+    UI.toast('Вы вышли из системы', 'info');
+}
 
 // ============================================================
 // ===================== ИНИЦИАЛИЗАЦИЯ ========================
 // ============================================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     initTabs();
     initEquipmentPage();
     initKeysPage();
     initUsersPage();
-    loadEquipment(); // стартовая вкладка
+
+    window.addEventListener('hashchange', handleRoute);
+
+    const refreshed = await api.refresh();
+    if (refreshed) {
+        currentUser = api.parseToken();
+        if (currentUser) {
+            showApp();
+            handleRoute();
+            return;
+        }
+    }
+    showLogin();
 });
+
+// ─── Роутинг: список ↔ карточка ───
+function handleRoute() {
+    const match = window.location.hash.match(/^#\/equipment\/view\/(\d+)$/);
+    if (match) {
+        if (!currentUser) { showLogin(); return; }
+        renderEquipmentPage(parseInt(match[1]));
+    } else {
+        showMainApp();
+    }
+}
+
+function showMainApp() {
+    const view = document.getElementById('full-page-view');
+    if (view) view.style.display = 'none';
+    document.getElementById('app').style.display = '';
+    const active = document.querySelector('.page.active');
+    if (active && active.id === 'page-equipment') loadEquipment();
+}
+
+// Разлогин по событию из ApiClient (401 после refresh)
+window.addEventListener('auth:logout', () => {
+    showLogin();
+    UI.toast('Сессия истекла, войдите заново', 'error');
+});
+
+// ============================================================
+// ========================= ВХОД =============================
+// ============================================================
+document.getElementById('login-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const btn = document.getElementById('login-btn');
+    const errEl = document.getElementById('login-error');
+    errEl.textContent = '';
+    btn.disabled = true;
+    btn.textContent = 'Вход...';
+
+    try {
+        currentUser = await api.signIn(fd.get('email').trim(), fd.get('password'));
+        if (!currentUser) throw new Error('Не удалось распознать пользователя');
+        showApp();
+        handleRoute();
+        UI.toast('Добро пожаловать!', 'success');
+    } catch (err) {
+        errEl.textContent = err.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Войти';
+    }
+});
+
+document.getElementById('btn-logout').addEventListener('click', doLogout);
 
 // ============================================================
 // ========================= ВКЛАДКИ ==========================
@@ -79,8 +183,8 @@ function initTabs() {
             tab.classList.add('active');
             document.getElementById(`page-${page}`).classList.add('active');
             if (page === 'equipment') loadEquipment();
-            if (page === 'keys')      loadKeys();
-            if (page === 'users')     loadUsers();
+            if (page === 'keys') loadKeys();
+            if (page === 'users') loadUsers();
         });
     });
 }
@@ -88,35 +192,29 @@ function initTabs() {
 // ============================================================
 // ==================== ОБОРУДОВАНИЕ ==========================
 // ============================================================
+const eqState = { limit: 10, offset: 0, search: '', inventory: '', status: '', isExpiredMode: false };
+
 function initEquipmentPage() {
     document.getElementById('btn-add-eq').addEventListener('click', () => showEquipmentForm());
 
-    let searchTimer;
+    let t1;
     document.getElementById('eq-search').addEventListener('input', e => {
-        clearTimeout(searchTimer);
-        searchTimer = setTimeout(() => { eqState.search = e.target.value; eqState.offset = 0; loadEquipment(); }, 300);
+        clearTimeout(t1);
+        t1 = setTimeout(() => { eqState.search = e.target.value; eqState.offset = 0; loadEquipment(); }, 300);
     });
-
-    let invTimer;
+    let t2;
     document.getElementById('eq-inventory').addEventListener('input', e => {
-        clearTimeout(invTimer);
-        invTimer = setTimeout(() => { eqState.inventory = e.target.value; eqState.offset = 0; loadEquipment(); }, 300);
+        clearTimeout(t2);
+        t2 = setTimeout(() => { eqState.inventory = e.target.value; eqState.offset = 0; loadEquipment(); }, 300);
     });
-
     document.getElementById('eq-status-filter').addEventListener('change', e => {
         eqState.status = e.target.value; eqState.offset = 0; loadEquipment();
     });
-
     document.getElementById('btn-expired-verification').addEventListener('click', () => {
         eqState.isExpiredMode = !eqState.isExpiredMode;
         const btn = document.getElementById('btn-expired-verification');
-        if (eqState.isExpiredMode) {
-            btn.className = 'btn btn-danger btn-sm';
-            btn.textContent = '❌ Показать все';
-        } else {
-            btn.className = 'btn btn-warning btn-sm';
-            btn.textContent = '⚠️ Просрочена поверка';
-        }
+        btn.className = eqState.isExpiredMode ? 'btn btn-danger btn-sm' : 'btn btn-warning btn-sm';
+        btn.textContent = eqState.isExpiredMode ? '❌ Показать все' : '⚠️ Просрочена поверка';
         eqState.offset = 0;
         loadEquipment();
     });
@@ -125,24 +223,16 @@ function initEquipmentPage() {
 async function loadEquipment() {
     const tbody = document.getElementById('equipment-table-body');
     tbody.innerHTML = '<tr><td colspan="8" class="loading">Загрузка...</td></tr>';
-
     try {
-        let data;
-        if (eqState.isExpiredMode) {
-            data = await api.getExpiredVerification(eqState.limit, eqState.offset);
-        } else {
-            data = await api.getEquipment({
-                limit: eqState.limit, offset: eqState.offset,
-                search: eqState.search, inventory: eqState.inventory, status: eqState.status
-            });
-        }
+        const data = eqState.isExpiredMode
+            ? await api.getExpiredVerification(eqState.limit, eqState.offset)
+            : await api.getEquipment({ limit: eqState.limit, offset: eqState.offset, search: eqState.search, inventory: eqState.inventory, status: eqState.status });
 
         const items = data.equipment || [];
-        const meta  = data.paginated_metadata || { total: 0, page: 1, total_pages: 1 };
-        eqState.total = meta.total;
+        const meta = data.paginated_metadata || { total: 0, page: 1, total_pages: 1 };
 
-        if (items.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" class="empty-state">${eqState.isExpiredMode ? 'Нет оборудования с просроченной поверкой' : 'Оборудование не найдено'}</td></tr>`;
+        if (!items.length) {
+            tbody.innerHTML = `<tr><td colspan="8" class="empty-state">${eqState.isExpiredMode ? 'Нет просроченных' : 'Не найдено'}</td></tr>`;
             document.getElementById('eq-pagination').innerHTML = '';
             return;
         }
@@ -150,194 +240,174 @@ async function loadEquipment() {
         const rows = await Promise.all(items.map(async eq => {
             let resp = '—';
             if (eq.responsible_id) {
-                try { const u = await api.getUser(eq.responsible_id); if (u) resp = u.full_name; } catch (_) {}
+                try { const u = await api.getUser(eq.responsible_id); if (u) resp = u.full_name; } catch {}
             }
-            return renderEquipmentRow(eq, resp);
+            return renderEqRow(eq, resp);
         }));
 
         tbody.innerHTML = rows.join('');
-        attachEquipmentActions();
+        attachEqActions();
         renderEqPagination(meta.total_pages, meta.page);
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="8" class="empty-state">Ошибка: ${UI.escape(err.message)}</td></tr>`;
-        UI.toast(err.message, 'error');
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-state">${UI.escape(err.message)}</td></tr>`;
     }
 }
 
-function renderEquipmentRow(eq, responsibleName) {
+function renderEqRow(eq, resp) {
     let verif = '<span class="text-muted">—</span>';
-    if (eq.verification_date) {
-        const expired = new Date(eq.verification_date) < new Date();
-        const style = expired ? 'color:#dc2626;font-weight:bold;' : 'color:#16a34a;';
-        verif = `<span style="${style}">${UI.formatDate(eq.verification_date).split(',')[0]}</span>`;
+    if (eq.next_verification_date) {
+        const expired = new Date(eq.next_verification_date) < new Date();
+        verif = `<span style="color:${expired ? '#dc2626' : '#16a34a'};font-weight:${expired ? 'bold' : 'normal'}">${UI.formatDateShort(eq.next_verification_date)}${expired ? ' ⚠️' : ''}</span>`;
     }
-    const badge = eq.status
-        ? '<span class="badge badge-available">Доступно</span>'
-        : '<span class="badge badge-lost">Недоступно</span>';
 
-    return `<tr>
+    let badge;
+    if (eq.status) {
+        badge = '<span class="badge badge-available">Доступно</span>';
+    } else {
+        badge = `<span class="badge badge-lost">Недоступно</span>
+                 <div class="unavailable-reason">${UI.escape(eq.unavailable_reason || 'Причина не указана')}</div>`;
+    }
+
+    const adminBtns = isAdmin() ? `
+        <button class="btn btn-secondary btn-sm" data-action="edit" data-id="${eq.id}">✏️</button>
+        <button class="btn btn-danger btn-sm" data-action="delete" data-id="${eq.id}">🗑️</button>
+    ` : '';
+
+    return `<tr class="${eq.status ? '' : 'row-unavailable'}">
         <td>${eq.id}</td>
-        <td><strong>${UI.escape(eq.name)}</strong>${eq.description ? `<br><small class="text-muted">${UI.escape(eq.description)}</small>` : ''}</td>
+        <td><strong>${UI.escape(eq.name)}</strong></td>
         <td>${UI.escape(eq.inventory_number || '—')}</td>
         <td>${UI.escape(eq.location || '—')}</td>
-        <td>${UI.escape(responsibleName)}</td>
+        <td>${UI.escape(resp)}</td>
         <td>${verif}</td>
         <td>${badge}</td>
         <td class="actions-cell">
-            <button class="btn btn-secondary btn-sm" onclick="window.location.hash='/equipment/view/${eq.id}'" title="Открыть карточку">👁️</button>            <button class="btn btn-secondary btn-sm" data-action="edit" data-id="${eq.id}" title="Редактировать">✏️</button>
-            <button class="btn btn-danger btn-sm" data-action="delete" data-id="${eq.id}" title="Удалить">🗑️</button>
+            <button class="btn btn-secondary btn-sm" data-action="view" data-id="${eq.id}">👁️</button>
+            ${adminBtns}
         </td>
     </tr>`;
 }
 
-function attachEquipmentActions() {
+function attachEqActions() {
     document.querySelectorAll('#equipment-table-body [data-action]').forEach(btn => {
         btn.addEventListener('click', async () => {
             const id = parseInt(btn.dataset.id);
-            if (btn.dataset.action === 'view')   await showEquipmentDetails(id);
-            if (btn.dataset.action === 'edit')   await showEquipmentForm(id);
+            if (btn.dataset.action === 'view') window.location.hash = `/equipment/view/${id}`;
+            if (btn.dataset.action === 'edit') await showEquipmentForm(id);
             if (btn.dataset.action === 'delete') await deleteEquipment(id);
         });
     });
 }
 
-async function showEquipmentDetails(id) {
+// ─── Загрузка фото (со страницы карточки) ───
+window.uploadPhotoForEquipment = async function(equipmentId, input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+        UI.toast('Файл слишком большой (макс. 10 МБ)', 'error');
+        input.value = '';
+        return;
+    }
     try {
-        const eq = await api.getEquipmentById(id);
-        
-        // Получаем имя ответственного
-        let responsibleName = 'Не назначен';
-        if (eq.responsible_id) {
-            try {
-                const u = await api.getUser(eq.responsible_id);
-                if (u) responsibleName = u.full_name;
-            } catch (_) {}
-        }
-
-        // Форматируем документацию как ссылку, если это URL
-        let docHtml = UI.escape(eq.documentation || '—');
-        if (eq.documentation && (eq.documentation.startsWith('http://') || eq.documentation.startsWith('https://'))) {
-            docHtml = `<a href="${UI.escape(eq.documentation)}" target="_blank" class="doc-link">🔗 Открыть документацию</a>`;
-        }
-
-        const statusBadge = eq.status
-            ? '<span class="badge badge-available">Доступно</span>'
-            : '<span class="badge badge-lost">Недоступно</span>';
-
-        let verifHtml = '—';
-        if (eq.verification_date) {
-            const expired = new Date(eq.verification_date) < new Date();
-            const style = expired ? 'color:#dc2626;font-weight:bold;' : 'color:#16a34a;';
-            verifHtml = `<span style="${style}">${UI.formatDate(eq.verification_date).split(',')[0]}</span>`;
-        }
-
-        const html = `
-            <div class="eq-details">
-                <div class="eq-detail-row">
-                    <span class="eq-label">Название:</span>
-                    <span class="eq-value"><strong>${UI.escape(eq.name)}</strong></span>
-                </div>
-                <div class="eq-detail-row">
-                    <span class="eq-label">Инв. номер:</span>
-                    <span class="eq-value">${UI.escape(eq.inventory_number || '—')}</span>
-                </div>
-                <div class="eq-detail-row">
-                    <span class="eq-label">Локация:</span>
-                    <span class="eq-value">${UI.escape(eq.location || '—')}</span>
-                </div>
-                <div class="eq-detail-row">
-                    <span class="eq-label">Статус:</span>
-                    <span class="eq-value">${statusBadge}</span>
-                </div>
-                <div class="eq-detail-row">
-                    <span class="eq-label">Дата поверки:</span>
-                    <span class="eq-value">${verifHtml}</span>
-                </div>
-                <div class="eq-detail-row">
-                    <span class="eq-label">Ответственный:</span>
-                    <span class="eq-value">${UI.escape(responsibleName)}</span>
-                </div>
-                <div class="eq-detail-row">
-                    <span class="eq-label">Описание:</span>
-                    <span class="eq-value eq-description">${UI.escape(eq.description || 'Нет описания')}</span>
-                </div>
-                <div class="eq-detail-row">
-                    <span class="eq-label">Документация:</span>
-                    <span class="eq-value">${docHtml}</span>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="UI.closeModal()">Закрыть</button>
-                <button type="button" class="btn btn-primary" onclick="UI.closeModal(); showEquipmentForm(${eq.id})">✏️ Редактировать</button>
-            </div>
-        `;
-
-        UI.openModal(`Карточка оборудования #${eq.id}`, html);
-
+        await api.uploadPhoto(equipmentId, file);
+        UI.toast('Фото загружено', 'success');
+        renderEquipmentPage(equipmentId);
     } catch (err) {
         UI.toast(err.message, 'error');
+    } finally {
+        input.value = '';
     }
-}
+};
 
+// ─── Форма создания/редактирования ───
 async function showEquipmentForm(id = null) {
-    let eq = { name:'', description:'', location:'', documentation:'', inventory_number:'', responsible_id:'', status:true, verification_date:'' };
+    let eq = {
+        name: '', description: '', location: '', documentation: '',
+        inventory_number: '', responsible_id: '', status: true,
+        unavailable_reason: '', last_verification_date: '', next_verification_date: ''
+    };
 
     if (id) {
         try {
             eq = await api.getEquipmentById(id);
-            if (eq.verification_date) eq.verification_date = eq.verification_date.substring(0, 10);
+            if (eq.last_verification_date) eq.last_verification_date = eq.last_verification_date.substring(0, 10);
+            if (eq.next_verification_date) eq.next_verification_date = eq.next_verification_date.substring(0, 10);
         } catch (err) { UI.toast(err.message, 'error'); return; }
     }
 
     let users = [];
-    try { users = await api.getUsers(); } catch (_) {}
+    try { users = await api.getUsers(); } catch {}
+    const opts = users.map(u => `<option value="${u.id}" ${eq.responsible_id === u.id ? 'selected' : ''}>${UI.escape(u.full_name)}</option>`).join('');
 
-    const opts = users.map(u =>
-        `<option value="${u.id}" ${eq.responsible_id === u.id ? 'selected' : ''}>${UI.escape(u.full_name)} (${UI.roleName(u.role)})</option>`
-    ).join('');
+    const reasons = ['На ремонте', 'Неисправно', 'Списано', 'Используется', 'Другое'];
+    const reasonOpts = reasons.map(r => `<option value="${r}" ${eq.unavailable_reason === r ? 'selected' : ''}>${r}</option>`).join('');
+    const isCustom = eq.unavailable_reason && !reasons.includes(eq.unavailable_reason);
 
     UI.openModal(id ? 'Редактировать оборудование' : 'Новое оборудование', `
         <form id="eq-form">
             <div class="form-group">
-                <label>Название *</label>
-                <input type="text" class="input" name="name" value="${UI.escape(eq.name)}" required>
+                <label>Название <span class="required">*</span></label>
+                <input type="text" class="input" name="name" value="${UI.escape(eq.name)}" required minlength="1">
             </div>
+
             <div class="form-group">
                 <label>Описание</label>
-                <textarea class="input" name="description" rows="2">${UI.escape(eq.description || '')}</textarea>
+                <textarea class="input" name="description" rows="2" placeholder="Как работать, особенности...">${UI.escape(eq.description || '')}</textarea>
             </div>
+
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                 <div class="form-group">
-                    <label>Инвентарный номер</label>
+                    <label>Инв. номер</label>
                     <input type="text" class="input" name="inventory_number" value="${UI.escape(eq.inventory_number || '')}">
                 </div>
                 <div class="form-group">
-                    <label>Локация</label>
-                    <input type="text" class="input" name="location" value="${UI.escape(eq.location || '')}">
+                    <label>Локация <span class="required">*</span></label>
+                    <input type="text" class="input" name="location" value="${UI.escape(eq.location || '')}" required placeholder="Каб. 305, стеллаж 2...">
                 </div>
             </div>
+
             <div class="form-group">
-                <label>Документация</label>
+                <label>Документация (URL)</label>
                 <input type="text" class="input" name="documentation" value="${UI.escape(eq.documentation || '')}" placeholder="https://...">
             </div>
+
+            <div class="form-group">
+                <label>Ответственный <span class="required">*</span></label>
+                <select class="input" name="responsible_id" required>
+                    <option value="" disabled ${!eq.responsible_id ? 'selected' : ''}>Выберите ответственного...</option>
+                    ${opts}
+                </select>
+            </div>
+
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                 <div class="form-group">
-                    <label>Ответственный</label>
-                    <select class="input" name="responsible_id">
-                        <option value="">Не назначен</option>
-                        ${opts}
-                    </select>
+                    <label>Последняя поверка</label>
+                    <input type="date" class="input" name="last_verification_date" value="${eq.last_verification_date || ''}">
                 </div>
                 <div class="form-group">
-                    <label>Дата поверки</label>
-                    <input type="date" class="input" name="verification_date" value="${eq.verification_date || ''}">
+                    <label>Следующая поверка</label>
+                    <input type="date" class="input" name="next_verification_date" value="${eq.next_verification_date || ''}">
                 </div>
             </div>
+
             <div class="form-group">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                    <input type="checkbox" name="status" ${eq.status ? 'checked' : ''}> Доступно
+                    <input type="checkbox" name="status" id="eq-status-cb" ${eq.status ? 'checked' : ''}> Доступно
                 </label>
             </div>
+
+            <div class="form-group" id="reason-block" style="display:${eq.status ? 'none' : 'block'};">
+                <label>Причина недоступности</label>
+                <select class="input" name="unavailable_reason" id="reason-select">
+                    <option value="">— Выберите —</option>
+                    ${reasonOpts}
+                    <option value="__custom" ${isCustom ? 'selected' : ''}>Другое...</option>
+                </select>
+                <input type="text" class="input" name="custom_reason" id="custom-reason"
+                       style="display:${isCustom ? 'block' : 'none'};margin-top:8px;"
+                       placeholder="Укажите причину" value="${isCustom ? UI.escape(eq.unavailable_reason) : ''}">
+            </div>
+
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="UI.closeModal()">Отмена</button>
                 <button type="submit" class="btn btn-primary">${id ? 'Сохранить' : 'Создать'}</button>
@@ -345,52 +415,240 @@ async function showEquipmentForm(id = null) {
         </form>
     `);
 
+    document.getElementById('eq-status-cb').addEventListener('change', e => {
+        document.getElementById('reason-block').style.display = e.target.checked ? 'none' : 'block';
+    });
+    document.getElementById('reason-select').addEventListener('change', e => {
+        document.getElementById('custom-reason').style.display = e.target.value === '__custom' ? 'block' : 'none';
+    });
+
     document.getElementById('eq-form').addEventListener('submit', async e => {
         e.preventDefault();
         const fd = new FormData(e.target);
+        const statusVal = fd.get('status') === 'on';
+
+        let reason = null;
+        if (!statusVal) {
+            const sel = fd.get('unavailable_reason');
+            reason = sel === '__custom' ? (fd.get('custom_reason').trim() || 'Не указана') : (sel || null);
+        }
+
         const payload = {
-            name:             fd.get('name').trim(),
-            description:      fd.get('description').trim() || null,
-            location:         fd.get('location').trim() || null,
-            documentation:    fd.get('documentation').trim() || null,
+            name: fd.get('name').trim(),
+            description: fd.get('description').trim() || null,
+            location: fd.get('location').trim() || null,
+            documentation: fd.get('documentation').trim() || null,
             inventory_number: fd.get('inventory_number').trim() || null,
-            responsible_id:   fd.get('responsible_id') || null,
-            status:           fd.get('status') === 'on',
-            verification_date: fd.get('verification_date') || null
+            responsible_id: fd.get('responsible_id') || null,
+            status: statusVal,
+            unavailable_reason: reason,
+            last_verification_date: fd.get('last_verification_date') || null,
+            next_verification_date: fd.get('next_verification_date') || null,
         };
+
         try {
             if (id) { await api.updateEquipment(id, payload); UI.toast('Обновлено', 'success'); }
-            else    { await api.createEquipment(payload);     UI.toast('Создано', 'success'); }
+            else { await api.createEquipment(payload); UI.toast('Создано', 'success'); }
             UI.closeModal();
-            loadEquipment();
+            if (window.location.hash.match(/#\/equipment\/view\/\d+/)) {
+                renderEquipmentPage(id);
+            } else {
+                loadEquipment();
+            }
         } catch (err) { UI.toast(err.message, 'error'); }
     });
 }
 
 async function deleteEquipment(id) {
-    if (!UI.confirm('Удалить это оборудование?')) return;
-    try {
-        await api.deleteEquipment(id);
-        UI.toast('Удалено', 'success');
-        loadEquipment();
-    } catch (err) { UI.toast(err.message, 'error'); }
+    if (!UI.confirm('Удалить оборудование?')) return;
+    try { await api.deleteEquipment(id); UI.toast('Удалено', 'success'); loadEquipment(); }
+    catch (err) { UI.toast(err.message, 'error'); }
 }
 
-function renderEqPagination(totalPages, currentPage) {
+function renderEqPagination(totalPages, page) {
     const c = document.getElementById('eq-pagination');
     if (totalPages <= 1) { c.innerHTML = ''; return; }
-    c.innerHTML = `<div style="display:flex;gap:5px;justify-content:center;margin-top:20px;">
-        <button class="btn btn-sm btn-secondary" ${currentPage===1?'disabled':''} onclick="changeEqPage(${currentPage-1})">← Назад</button>
-        <span style="padding:5px 10px;font-size:14px;">Стр. ${currentPage} из ${totalPages}</span>
-        <button class="btn btn-sm btn-secondary" ${currentPage===totalPages?'disabled':''} onclick="changeEqPage(${currentPage+1})">Вперёд →</button>
+    c.innerHTML = `<div style="display:flex;gap:8px;justify-content:center;margin-top:16px;align-items:center;">
+        <button class="btn btn-sm btn-secondary" ${page === 1 ? 'disabled' : ''} onclick="changeEqPage(${page - 1})">←</button>
+        <span style="font-size:14px;">${page} / ${totalPages}</span>
+        <button class="btn btn-sm btn-secondary" ${page === totalPages ? 'disabled' : ''} onclick="changeEqPage(${page + 1})">→</button>
     </div>`;
 }
+window.changeEqPage = p => { if (p < 1) return; eqState.offset = (p - 1) * eqState.limit; loadEquipment(); };
 
-window.changeEqPage = function(page) {
-    if (page < 1) return;
-    eqState.offset = (page - 1) * eqState.limit;
-    loadEquipment();
-};
+// ============================================================
+// ============ ОТДЕЛЬНАЯ СТРАНИЦА ОБОРУДОВАНИЯ ===============
+// ============================================================
+async function renderEquipmentPage(id) {
+    document.getElementById('app').style.display = 'none';
+    let view = document.getElementById('full-page-view');
+    if (!view) {
+        view = document.createElement('div');
+        view.id = 'full-page-view';
+        document.body.appendChild(view);
+    }
+    view.style.display = 'block';
+    view.innerHTML = '<div class="ep-loading">Загрузка карточки...</div>';
+    window.scrollTo(0, 0);
+
+    try {
+        const eq = await api.getEquipmentById(id);
+
+        let resp = 'Не назначен';
+        if (eq.responsible_id) {
+            try { const u = await api.getUser(eq.responsible_id); if (u) resp = u.full_name; } catch {}
+        }
+
+        let photos = [];
+        try { photos = await api.getPhotos(eq.id) || []; } catch {}
+
+        // Даты
+        const lastVerif = eq.last_verification_date ? UI.formatDateShort(eq.last_verification_date) : '—';
+
+        let nextVerifHeader = '—';
+        let nextVerifFact = '—';
+        if (eq.next_verification_date) {
+            const expired = new Date(eq.next_verification_date) < new Date();
+            nextVerifHeader = `<span style="color:${expired ? '#fff' : '#c7f5d4'};font-weight:700">${UI.formatDateShort(eq.next_verification_date)}${expired ? ' · просрочена!' : ''}</span>`;
+            nextVerifFact = `<span style="color:${expired ? 'var(--danger)' : 'var(--success)'};font-weight:700">${UI.formatDateShort(eq.next_verification_date)}${expired ? ' ⚠️' : ''}</span>`;
+        }
+
+        // Статус
+        const statusBadge = eq.status
+            ? '<span class="ep-status ep-status-ok">✓ Доступно</span>'
+            : '<span class="ep-status ep-status-bad">✕ Недоступно</span>';
+        const reasonLine = (!eq.status && eq.unavailable_reason)
+            ? `<div class="ep-reason">Причина: ${UI.escape(eq.unavailable_reason)}</div>` : '';
+
+        // Документация
+        let docHtml = '<span class="ep-muted">—</span>';
+        if (eq.documentation) {
+            docHtml = eq.documentation.startsWith('http')
+                ? `<a href="${UI.escape(eq.documentation)}" target="_blank" class="ep-doc-link">🔗 Открыть документацию</a>`
+                : UI.escape(eq.documentation);
+        }
+
+        // Галерея
+        const featured = photos.length ? photos[0] : null;
+        const mainImg = featured
+            ? `<img id="ep-main-img" src="${api.photoUrl(featured.id)}" alt="${UI.escape(featured.filename)}" title="Открыть в новой вкладке">`
+            : `<div id="ep-main-img" class="ep-no-photo">📷<span>Нет фотографий</span></div>`;
+
+        const thumbs = photos.map((p, i) => `
+            <div class="ep-thumb ${i === 0 ? 'active' : ''}" data-url="${api.photoUrl(p.id)}" data-id="${p.id}" title="${UI.escape(p.filename)} · ${UI.formatSize(p.size_bytes)}">
+                <img src="${api.photoUrl(p.id)}" alt="${UI.escape(p.filename)}">
+                ${isAdmin() ? `<button class="ep-thumb-del" data-del="${p.id}" title="Удалить">×</button>` : ''}
+            </div>`).join('');
+
+        const addPhotoTile = isAdmin() ? `
+            <label class="ep-thumb ep-add" title="Добавить фото">
+                <span>＋</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none"
+                       onchange="uploadPhotoForEquipment(${eq.id}, this)">
+            </label>` : '';
+
+        view.innerHTML = `
+        <div class="ep-container">
+            <div class="ep-topbar">
+                <button class="ep-back" onclick="window.location.hash=''">← К списку оборудования</button>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                    <span class="user-badge">${UI.roleName(currentUser.role)}</span>
+                    ${isAdmin() ? `<button class="btn btn-primary" onclick="showEquipmentForm(${eq.id})">✏️ Редактировать</button>` : ''}
+                    <button class="ep-back" onclick="doLogout()">Выйти</button>
+                </div>
+            </div>
+
+            <div class="ep-header">
+                <div class="ep-id">ID ${eq.id}</div>
+                <h1 class="ep-title">${UI.escape(eq.name)}</h1>
+                <div class="ep-statusline">${statusBadge}${reasonLine}</div>
+                <div class="ep-quick">
+                    <span>📍 ${UI.escape(eq.location || '—')}</span>
+                    <span>👤 ${UI.escape(resp)}</span>
+                    <span>🗓 След. поверка: ${nextVerifHeader}</span>
+                </div>
+            </div>
+
+            <div class="ep-grid">
+                <div class="ep-card ep-gallery-card">
+                    <div class="ep-main">${mainImg}</div>
+                    ${(photos.length || isAdmin()) ? `<div class="ep-thumbs">${thumbs}${addPhotoTile}</div>` : ''}
+                </div>
+
+                <div class="ep-card ep-facts-card">
+                    <h2 class="ep-card-title">Сведения</h2>
+                    <div class="ep-fact"><span class="ep-label">Инвентарный номер</span><span class="ep-value">${UI.escape(eq.inventory_number || '—')}</span></div>
+                    <div class="ep-fact"><span class="ep-label">Локация</span><span class="ep-value">${UI.escape(eq.location || '—')}</span></div>
+                    <div class="ep-fact"><span class="ep-label">Ответственный</span><span class="ep-value">${UI.escape(resp)}</span></div>
+                    <div class="ep-fact"><span class="ep-label">Последняя поверка</span><span class="ep-value">${lastVerif}</span></div>
+                    <div class="ep-fact"><span class="ep-label">Следующая поверка</span><span class="ep-value">${nextVerifFact}</span></div>
+                    <div class="ep-fact"><span class="ep-label">Документация</span><span class="ep-value">${docHtml}</span></div>
+                    <div class="ep-fact"><span class="ep-label">Статус</span><span class="ep-value">${eq.status ? 'Доступно' : 'Недоступно'}</span></div>
+                </div>
+            </div>
+
+            <div class="ep-card ep-desc-card">
+                <h2 class="ep-card-title">Описание</h2>
+                <p class="ep-desc">${UI.escape(eq.description || 'Описание отсутствует.')}</p>
+            </div>
+
+            <div class="ep-meta">
+                Создано: ${UI.formatDate(eq.created_at)} · Обновлено: ${UI.formatDate(eq.updated_at)}
+            </div>
+        </div>`;
+
+        wireEquipmentPage(eq, photos);
+
+    } catch (err) {
+        view.innerHTML = `
+            <div class="ep-error">
+                <div class="ep-error-icon">⚠️</div>
+                <h2>Не удалось загрузить оборудование</h2>
+                <p>${UI.escape(err.message)}</p>
+                <button class="btn btn-secondary" onclick="window.location.hash=''">← Вернуться к списку</button>
+            </div>`;
+    }
+}
+
+function wireEquipmentPage(eq, photos) {
+    // Переключение главного фото
+    document.querySelectorAll('.ep-thumb[data-url]').forEach(th => {
+        th.addEventListener('click', (e) => {
+            if (e.target.closest('.ep-thumb-del')) return;
+            const main = document.getElementById('ep-main-img');
+            const url = th.dataset.url;
+            if (main && main.tagName === 'IMG') {
+                main.src = url;
+            } else if (main) {
+                const img = document.createElement('img');
+                img.id = 'ep-main-img';
+                img.src = url;
+                main.replaceWith(img);
+            }
+            document.querySelectorAll('.ep-thumb').forEach(t => t.classList.remove('active'));
+            th.classList.add('active');
+        });
+    });
+
+    // Клик по главному фото — открыть в новой вкладке
+    const main = document.getElementById('ep-main-img');
+    if (main && main.tagName === 'IMG') {
+        main.addEventListener('click', () => window.open(main.src, '_blank'));
+    }
+
+    // Удаление фото
+    document.querySelectorAll('.ep-thumb-del').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (!UI.confirm('Удалить фото?')) return;
+            try {
+                await api.deletePhoto(parseInt(btn.dataset.del));
+                UI.toast('Фото удалено', 'success');
+                renderEquipmentPage(eq.id);
+            } catch (err) { UI.toast(err.message, 'error'); }
+        });
+    });
+}
 
 // ============================================================
 // ======================= КЛЮЧИ ==============================
@@ -405,15 +663,24 @@ async function loadKeys(status = '') {
     tbody.innerHTML = '<tr><td colspan="6" class="loading">Загрузка...</td></tr>';
     try {
         const keys = await api.getKeys(status);
-        if (!keys.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Ключи не найдены</td></tr>'; return; }
+        if (!keys.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Не найдено</td></tr>'; return; }
+
         const rows = await Promise.all(keys.map(async key => {
             let holder = '—';
             if (key.status === 'issued') {
                 try {
                     const h = await api.getKeyHolder(key.id);
-                    if (h?.user_id) { const u = await api.getUser(h.user_id); holder = u ? u.full_name : h.user_id.slice(0,8); }
-                } catch (_) {}
+                    if (h && h.user_id) { const u = await api.getUser(h.user_id); holder = u ? u.full_name : h.user_id.slice(0, 8); }
+                } catch {}
             }
+            const adminBtns = isAdmin() ? `
+                ${key.status === 'available' ? `<button class="btn btn-success btn-sm" data-action="issue" data-id="${key.id}">Выдать</button>` : ''}
+                ${key.status === 'issued' ? `<button class="btn btn-warning btn-sm" data-action="return" data-id="${key.id}">Вернуть</button><button class="btn btn-danger btn-sm" data-action="lost" data-id="${key.id}">Утерян</button>` : ''}
+                <button class="btn btn-secondary btn-sm" data-action="edit" data-id="${key.id}">✏️</button>
+            ` : `
+                ${key.status === 'available' ? `<button class="btn btn-success btn-sm" data-action="issue" data-id="${key.id}">Выдать</button>` : ''}
+                ${key.status === 'issued' ? `<button class="btn btn-warning btn-sm" data-action="return" data-id="${key.id}">Вернуть</button>` : ''}
+            `;
             return `<tr>
                 <td>${key.id}</td>
                 <td><strong>${UI.escape(key.key_number)}</strong></td>
@@ -421,65 +688,62 @@ async function loadKeys(status = '') {
                 <td><span class="badge badge-${key.status}">${UI.statusName(key.status)}</span></td>
                 <td>${UI.escape(holder)}</td>
                 <td class="actions-cell">
-                    ${key.status==='available' ? `<button class="btn btn-success btn-sm" data-action="issue" data-id="${key.id}">Выдать</button>` : ''}
-                    ${key.status==='issued' ? `<button class="btn btn-warning btn-sm" data-action="return" data-id="${key.id}">Вернуть</button><button class="btn btn-danger btn-sm" data-action="lost" data-id="${key.id}">Утерян</button>` : ''}
-                    <button class="btn btn-secondary btn-sm" data-action="history" data-id="${key.id}">История</button>
-                    <button class="btn btn-secondary btn-sm" data-action="edit" data-id="${key.id}">✏️</button>
+                    ${adminBtns}
+                    <button class="btn btn-secondary btn-sm" data-action="history" data-id="${key.id}">📋</button>
                 </td>
             </tr>`;
         }));
+
         tbody.innerHTML = rows.join('');
         document.querySelectorAll('#keys-table-body [data-action]').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const id = parseInt(btn.dataset.id);
-                switch (btn.dataset.action) {
-                    case 'issue':   await showIssueForm(id); break;
-                    case 'return':  if (UI.confirm('Вернуть ключ?')) { try { await api.returnKey(id,{comment:'Возврат'}); UI.toast('Возвращён','success'); loadKeys(status); } catch(e){UI.toast(e.message,'error');} } break;
-                    case 'lost':    if (UI.confirm('Пометить как утерянный?')) { try { await api.markLost(id,{comment:'Утеря'}); UI.toast('Утерян','success'); loadKeys(status); } catch(e){UI.toast(e.message,'error');} } break;
-                    case 'history': await showKeyHistory(id); break;
-                    case 'edit':    await showKeyForm(id); break;
-                }
+                const a = btn.dataset.action;
+                if (a === 'issue') await showIssueForm(id);
+                if (a === 'return') { if (UI.confirm('Вернуть ключ?')) { try { await api.returnKey(id, { comment: 'Возврат' }); UI.toast('Возвращён', 'success'); loadKeys(status); } catch (e) { UI.toast(e.message, 'error'); } } }
+                if (a === 'lost') { if (UI.confirm('Утерян?')) { try { await api.markLost(id, { comment: 'Утеря' }); UI.toast('Помечен', 'success'); loadKeys(status); } catch (e) { UI.toast(e.message, 'error'); } } }
+                if (a === 'history') await showKeyHistory(id);
+                if (a === 'edit') await showKeyForm(id);
             });
         });
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Ошибка: ${UI.escape(err.message)}</td></tr>`;
-        UI.toast(err.message, 'error');
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${UI.escape(err.message)}</td></tr>`;
     }
 }
 
 async function showKeyForm(id = null) {
-    let key = { key_number:'', room_description:'', notes:'', status:'available' };
-    if (id) { try { key = await api.getKey(id); } catch(e){ UI.toast(e.message,'error'); return; } }
+    let key = { key_number: '', room_description: '', notes: '', status: 'available' };
+    if (id) { try { key = await api.getKey(id); } catch (e) { UI.toast(e.message, 'error'); return; } }
     UI.openModal(id ? 'Редактировать ключ' : 'Новый ключ', `
         <form id="key-form">
-            <div class="form-group"><label>Номер ключа *</label><input type="text" class="input" name="key_number" value="${UI.escape(key.key_number)}" required></div>
-            <div class="form-group"><label>Помещение *</label><input type="text" class="input" name="room_description" value="${UI.escape(key.room_description)}" required></div>
-            <div class="form-group"><label>Примечания</label><input type="text" class="input" name="notes" value="${UI.escape(key.notes||'')}"></div>
-            ${id ? `<div class="form-group"><label>Статус</label><select class="input" name="status"><option value="available" ${key.status==='available'?'selected':''}>Свободен</option><option value="issued" ${key.status==='issued'?'selected':''}>Выдан</option><option value="lost" ${key.status==='lost'?'selected':''}>Утерян</option></select></div>` : ''}
-            <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="UI.closeModal()">Отмена</button><button type="submit" class="btn btn-primary">${id?'Сохранить':'Создать'}</button></div>
+            <div class="form-group"><label>Номер <span class="required">*</span></label><input type="text" class="input" name="key_number" value="${UI.escape(key.key_number)}" required></div>
+            <div class="form-group"><label>Помещение <span class="required">*</span></label><input type="text" class="input" name="room_description" value="${UI.escape(key.room_description)}" required></div>
+            <div class="form-group"><label>Примечания</label><input type="text" class="input" name="notes" value="${UI.escape(key.notes || '')}"></div>
+            ${id ? `<div class="form-group"><label>Статус</label><select class="input" name="status"><option value="available" ${key.status === 'available' ? 'selected' : ''}>Свободен</option><option value="issued" ${key.status === 'issued' ? 'selected' : ''}>Выдан</option><option value="lost" ${key.status === 'lost' ? 'selected' : ''}>Утерян</option></select></div>` : ''}
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="UI.closeModal()">Отмена</button><button type="submit" class="btn btn-primary">${id ? 'Сохранить' : 'Создать'}</button></div>
         </form>
     `);
     document.getElementById('key-form').addEventListener('submit', async e => {
         e.preventDefault();
         const fd = new FormData(e.target);
-        const data = { key_number: fd.get('key_number').trim(), room_description: fd.get('room_description').trim(), notes: fd.get('notes').trim()||null };
+        const data = { key_number: fd.get('key_number').trim(), room_description: fd.get('room_description').trim(), notes: fd.get('notes').trim() || null };
         if (id) data.status = fd.get('status');
         try {
-            if (id) { await api.updateKey(id, data); UI.toast('Обновлён','success'); }
-            else    { await api.createKey(data);     UI.toast('Создан','success'); }
+            if (id) { await api.updateKey(id, data); UI.toast('Обновлён', 'success'); }
+            else { await api.createKey(data); UI.toast('Создан', 'success'); }
             UI.closeModal(); loadKeys(document.getElementById('key-status-filter').value);
-        } catch(err){ UI.toast(err.message,'error'); }
+        } catch (err) { UI.toast(err.message, 'error'); }
     });
 }
 
 async function showIssueForm(keyId) {
     let users = [];
-    try { users = await api.getUsers(); } catch(e){ UI.toast(e.message,'error'); return; }
-    if (!users.length) { UI.toast('Сначала добавьте пользователей','error'); return; }
+    try { users = await api.getUsers(); } catch (e) { UI.toast(e.message, 'error'); return; }
+    if (!users.length) { UI.toast('Нет пользователей', 'error'); return; }
     const opts = users.map(u => `<option value="${u.id}">${UI.escape(u.full_name)} (${UI.roleName(u.role)})</option>`).join('');
     UI.openModal('Выдача ключа', `
         <form id="issue-form">
-            <div class="form-group"><label>Кому выдать *</label><select class="input" name="user_id" required><option value="">Выберите...</option>${opts}</select></div>
+            <div class="form-group"><label>Кому <span class="required">*</span></label><select class="input" name="user_id" required><option value="">Выберите...</option>${opts}</select></div>
             <div class="form-group"><label>Комментарий</label><input type="text" class="input" name="comment"></div>
             <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="UI.closeModal()">Отмена</button><button type="submit" class="btn btn-success">Выдать</button></div>
         </form>
@@ -488,20 +752,20 @@ async function showIssueForm(keyId) {
         e.preventDefault();
         const fd = new FormData(e.target);
         try {
-            await api.issueKey(keyId, { user_id: fd.get('user_id'), comment: fd.get('comment').trim()||null });
-            UI.toast('Выдан','success'); UI.closeModal(); loadKeys(document.getElementById('key-status-filter').value);
-        } catch(err){ UI.toast(err.message,'error'); }
+            await api.issueKey(keyId, { user_id: fd.get('user_id'), comment: fd.get('comment').trim() || null });
+            UI.toast('Выдан', 'success'); UI.closeModal(); loadKeys(document.getElementById('key-status-filter').value);
+        } catch (err) { UI.toast(err.message, 'error'); }
     });
 }
 
 async function showKeyHistory(keyId) {
     let logs = [];
-    try { logs = await api.getKeyHistory(keyId); } catch(e){ UI.toast(e.message,'error'); return; }
+    try { logs = await api.getKeyHistory(keyId); } catch (e) { UI.toast(e.message, 'error'); return; }
     if (!logs.length) { UI.openModal(`История #${keyId}`, '<div class="empty-state">Пуста</div>'); return; }
     const items = await Promise.all(logs.map(async log => {
-        let name = log.user_id ? log.user_id.slice(0,8) : 'Система';
-        if (log.user_id) { try { const u = await api.getUser(log.user_id); if(u) name = u.full_name; } catch(_){} }
-        return `<li class="history-item"><div><div class="history-action">${UI.actionName(log.action_type)}</div><div>${UI.escape(name)}</div>${log.comment?`<div class="history-time">💬 ${UI.escape(log.comment)}</div>`:''}</div><div class="history-time">${UI.formatDate(log.timestamp)}</div></li>`;
+        let name = 'Система';
+        if (log.user_id) { try { const u = await api.getUser(log.user_id); if (u) name = u.full_name; } catch {} }
+        return `<li class="history-item"><div><div class="history-action">${UI.actionName(log.action_type)}</div><div>${UI.escape(name)}</div>${log.comment ? `<div class="history-time">💬 ${UI.escape(log.comment)}</div>` : ''}</div><div class="history-time">${UI.formatDate(log.timestamp)}</div></li>`;
     }));
     UI.openModal(`История ключа #${keyId}`, `<ul class="history-list">${items.join('')}</ul>`);
 }
@@ -515,270 +779,69 @@ function initUsersPage() {
 
 async function loadUsers() {
     const tbody = document.getElementById('users-table-body');
-    tbody.innerHTML = '<tr><td colspan="5" class="loading">Загрузка...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="loading">Загрузка...</td></tr>';
     try {
         const users = await api.getUsers();
-        if (!users.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Не найдены</td></tr>'; return; }
+        if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Не найдено</td></tr>'; return; }
         tbody.innerHTML = users.map(u => `<tr>
             <td><strong>${UI.escape(u.full_name)}</strong></td>
             <td><span class="badge badge-role">${UI.roleName(u.role)}</span></td>
-            <td>${UI.escape(u.phone||'—')}</td>
-            <td>${UI.escape(u.email||'—')}</td>
+            <td>${UI.escape(u.phone || '—')}</td>
+            <td>${UI.escape(u.email || '—')}</td>
+            <td>${u.is_active ? '<span class="badge badge-available">Активен</span>' : '<span class="badge badge-lost">Неактивен</span>'}</td>
             <td class="actions-cell">
-                <button class="btn btn-secondary btn-sm" data-action="edit" data-id="${u.id}">✏️</button>
-                <button class="btn btn-danger btn-sm" data-action="deactivate" data-id="${u.id}">🚫</button>
+                ${isAdmin() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${u.id}">✏️</button><button class="btn btn-danger btn-sm" data-action="deactivate" data-id="${u.id}">🚫</button>` : '—'}
             </td>
         </tr>`).join('');
-        document.querySelectorAll('#users-table-body [data-action]').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const id = btn.dataset.id;
-                if (btn.dataset.action === 'edit') await showUserForm(id);
-                if (btn.dataset.action === 'deactivate' && UI.confirm('Деактивировать?')) {
-                    try { await api.deactivateUser(id); UI.toast('Деактивирован','success'); loadUsers(); } catch(e){ UI.toast(e.message,'error'); }
-                }
+
+        if (isAdmin()) {
+            document.querySelectorAll('#users-table-body [data-action]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.id;
+                    if (btn.dataset.action === 'edit') await showUserForm(id);
+                    if (btn.dataset.action === 'deactivate' && UI.confirm('Деактивировать?')) {
+                        try { await api.deactivateUser(id); UI.toast('Деактивирован', 'success'); loadUsers(); }
+                        catch (e) { UI.toast(e.message, 'error'); }
+                    }
+                });
             });
-        });
-    } catch(err) {
-        tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Ошибка: ${UI.escape(err.message)}</td></tr>`;
-        UI.toast(err.message,'error');
+        }
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${UI.escape(err.message)}</td></tr>`;
     }
 }
 
 async function showUserForm(id = null) {
     let user = { full_name: '', role: 'student', phone: '', email: '' };
-    if (id) { 
-        try { user = await api.getUser(id); } 
-        catch(e) { UI.toast(e.message, 'error'); return; } 
-    }
-    
+    if (id) { try { user = await api.getUser(id); } catch (e) { UI.toast(e.message, 'error'); return; } }
+
     UI.openModal(id ? 'Редактировать пользователя' : 'Новый пользователь', `
         <form id="user-form">
-            <div class="form-group">
-                <label>ФИО *</label>
-                <input type="text" class="input" name="full_name" value="${UI.escape(user.full_name)}" required minlength="3">
-            </div>
-            <div class="form-group">
-                <label>Роль *</label>
-                <select class="input" name="role" required>
-                    <option value="student" ${user.role === 'student' ? 'selected' : ''}>Студент</option>
-                    <option value="teacher" ${user.role === 'teacher' ? 'selected' : ''}>Преподаватель</option>
-                    <option value="staff" ${user.role === 'staff' ? 'selected' : ''}>Сотрудник</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Телефон</label>
-                <input type="tel" class="input" name="phone" value="${UI.escape(user.phone || '')}">
-            </div>
-            <div class="form-group">
-                <label>Email</label>
-                <input type="email" class="input" name="email" value="${UI.escape(user.email || '')}">
-            </div>
-            ${!id ? `
-            <div class="form-group">
-                <label>Пароль *</label>
-                <input type="password" class="input" name="password" required minlength="8" placeholder="Минимум 8 символов">
-            </div>
-            ` : ''}
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="UI.closeModal()">Отмена</button>
-                <button type="submit" class="btn btn-primary">${id ? 'Сохранить' : 'Создать'}</button>
-            </div>
+            <div class="form-group"><label>ФИО <span class="required">*</span></label><input type="text" class="input" name="full_name" value="${UI.escape(user.full_name)}" required minlength="3"></div>
+            <div class="form-group"><label>Роль <span class="required">*</span></label><select class="input" name="role" required>
+                <option value="student" ${user.role === 'student' ? 'selected' : ''}>Студент</option>
+                <option value="teacher" ${user.role === 'teacher' ? 'selected' : ''}>Преподаватель</option>
+                <option value="staff" ${user.role === 'staff' ? 'selected' : ''}>Сотрудник</option>
+            </select></div>
+            <div class="form-group"><label>Телефон</label><input type="tel" class="input" name="phone" value="${UI.escape(user.phone || '')}"></div>
+            <div class="form-group"><label>Email</label><input type="email" class="input" name="email" value="${UI.escape(user.email || '')}"></div>
+            ${!id ? `<div class="form-group"><label>Пароль</label><input type="password" class="input" name="password" minlength="8" placeholder="Мин. 8 символов (опционально)"><small class="text-muted">Если не указан — пользователь создаётся без пароля</small></div>` : ''}
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="UI.closeModal()">Отмена</button><button type="submit" class="btn btn-primary">${id ? 'Сохранить' : 'Создать'}</button></div>
         </form>
     `);
 
     document.getElementById('user-form').addEventListener('submit', async e => {
         e.preventDefault();
         const fd = new FormData(e.target);
-        const data = { 
-            full_name: fd.get('full_name').trim(), 
-            role: fd.get('role'), 
-            phone: fd.get('phone').trim() || null, 
-            email: fd.get('email').trim() || null 
-        };
-        
-        // Добавляем пароль только при создании нового пользователя
+        const data = { full_name: fd.get('full_name').trim(), role: fd.get('role'), phone: fd.get('phone').trim() || null, email: fd.get('email').trim() || null };
         if (!id) {
-            data.password = fd.get('password');
+            const pwd = fd.get('password');
+            if (pwd) data.password = pwd;
         }
-
         try {
-            if (id) { 
-                await api.updateUser(id, data); 
-                UI.toast('Обновлён', 'success'); 
-            } else { 
-                await api.createUser(data);     
-                UI.toast('Создан', 'success'); 
-            }
-            UI.closeModal(); 
-            loadUsers();
-        } catch(err) { 
-            UI.toast(err.message, 'error'); 
-        }
+            if (id) { await api.updateUser(id, data); UI.toast('Обновлён', 'success'); }
+            else { await api.createUser(data); UI.toast('Создан', 'success'); }
+            UI.closeModal(); loadUsers();
+        } catch (err) { UI.toast(err.message, 'error'); }
     });
 }
-
-// ============================================================
-// ==================== КЛИЕНТСКАЯ МАРШРУТИЗАЦИЯ ==============
-// ============================================================
-
-// Слушаем изменение хэша в URL (например, #/equipment/view/5)
-window.addEventListener('hashchange', handleRoute);
-window.addEventListener('load', handleRoute); // Обрабатываем при первой загрузке
-
-function handleRoute() {
-    const hash = window.location.hash;
-    
-    // Если хэш пустой или просто #, показываем главную страницу с оборудованием
-    if (!hash || hash === '#') {
-        showMainApp();
-        return;
-    }
-
-    // Проверяем паттерн #/equipment/view/ID
-    const match = hash.match(/^#\/equipment\/view\/(\d+)$/);
-    if (match) {
-        const id = match[1];
-        renderEquipmentViewPage(id);
-    }
-}
-
-function showMainApp() {
-    // 1. Скрываем страницу просмотра, если она была открыта
-    const viewContainer = document.getElementById('full-page-view');
-    if (viewContainer) {
-        viewContainer.style.display = 'none';
-    }
-
-    // 2. Возвращаем видимость основного интерфейса
-    document.querySelector('header').style.display = 'block';
-    document.querySelector('main').style.display = 'block';
-    
-    // 3. Активируем вкладку оборудования, если мы были где-то еще
-    const eqTab = document.querySelector('.tab[data-page="equipment"]');
-    if (eqTab && !eqTab.classList.contains('active')) {
-        eqTab.click();
-    }
-}
-
-async function renderEquipmentViewPage(id) {
-    // Скрываем основной интерфейс, чтобы создать эффект отдельной страницы
-    document.querySelector('header').style.display = 'none';
-    document.querySelector('main').style.display = 'none';
-
-    // Создаем контейнер для "страницы", если его нет
-    let viewContainer = document.getElementById('full-page-view');
-    if (!viewContainer) {
-        viewContainer = document.createElement('div');
-        viewContainer.id = 'full-page-view';
-        document.body.appendChild(viewContainer);
-    }
-
-    viewContainer.innerHTML = '<div class="loading" style="padding:50px; text-align:center;">Загрузка карточки...</div>';
-    viewContainer.style.display = 'block';
-    viewContainer.style.background = 'var(--gray-50)';
-    viewContainer.style.minHeight = '100vh';
-
-    try {
-        const eq = await api.getEquipmentById(id);
-        
-        // Получаем имя ответственного
-        let respName = 'Не назначен';
-        if (eq.responsible_id) {
-            try {
-                const u = await api.getUser(eq.responsible_id);
-                if (u) respName = u.full_name;
-            } catch (_) {}
-        }
-
-        // Форматирование
-        let verifHtml = '—';
-        if (eq.verification_date) {
-            const d = new Date(eq.verification_date);
-            const isExpired = d < new Date();
-            const color = isExpired ? '#dc2626' : '#16a34a';
-            verifHtml = `<span style="color:${color}; font-weight:bold;">${d.toLocaleDateString('ru-RU')}</span>`;
-        }
-
-        let docHtml = '—';
-        if (eq.documentation) {
-             if (eq.documentation.startsWith('http')) {
-                docHtml = `<a href="${eq.documentation}" target="_blank" class="doc-link">🔗 Открыть ссылку</a>`;
-            } else {
-                docHtml = UI.escape(eq.documentation);
-            }
-        }
-
-        const statusBadge = eq.status 
-            ? '<span class="badge badge-available">Доступно</span>' 
-            : '<span class="badge badge-lost">Недоступно</span>';
-
-        // Рендер полной страницы
-        viewContainer.innerHTML = `
-            <div style="max-width: 800px; margin: 40px auto; background: white; padding: 40px; border-radius: 12px; box-shadow: var(--shadow-lg);">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 30px; border-bottom: 1px solid var(--gray-200); padding-bottom: 20px;">
-                    <h1 style="margin:0; font-size: 28px; color: var(--gray-900);">${UI.escape(eq.name)}</h1>
-                    <button onclick="window.history.back()" class="btn btn-secondary">← Назад к списку</button>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
-                    <div>
-                        <div style="margin-bottom: 20px;">
-                            <div class="label" style="font-size: 12px; text-transform: uppercase; color: var(--gray-500); font-weight: 600;">Инвентарный номер</div>
-                            <div style="font-size: 18px; margin-top: 5px;">${UI.escape(eq.inventory_number || '—')}</div>
-                        </div>
-                        <div style="margin-bottom: 20px;">
-                            <div class="label" style="font-size: 12px; text-transform: uppercase; color: var(--gray-500); font-weight: 600;">Локация</div>
-                            <div style="font-size: 18px; margin-top: 5px;">${UI.escape(eq.location || '—')}</div>
-                        </div>
-                        <div style="margin-bottom: 20px;">
-                            <div class="label" style="font-size: 12px; text-transform: uppercase; color: var(--gray-500); font-weight: 600;">Статус</div>
-                            <div style="margin-top: 5px;">${statusBadge}</div>
-                        </div>
-                    </div>
-                    <div>
-                        <div style="margin-bottom: 20px;">
-                            <div class="label" style="font-size: 12px; text-transform: uppercase; color: var(--gray-500); font-weight: 600;">Ответственный</div>
-                            <div style="font-size: 18px; margin-top: 5px;">${UI.escape(respName)}</div>
-                        </div>
-                        <div style="margin-bottom: 20px;">
-                            <div class="label" style="font-size: 12px; text-transform: uppercase; color: var(--gray-500); font-weight: 600;">Дата поверки</div>
-                            <div style="font-size: 18px; margin-top: 5px;">${verifHtml}</div>
-                        </div>
-                         <div style="margin-bottom: 20px;">
-                            <div class="label" style="font-size: 12px; text-transform: uppercase; color: var(--gray-500); font-weight: 600;">Документация</div>
-                            <div style="font-size: 16px; margin-top: 5px;">${docHtml}</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--gray-200);">
-                    <div class="label" style="font-size: 12px; text-transform: uppercase; color: var(--gray-500); font-weight: 600;">Описание</div>
-                    <p style="margin-top: 10px; line-height: 1.6; color: var(--gray-700); white-space: pre-wrap;">${UI.escape(eq.description || 'Описание отсутствует')}</p>
-                </div>
-
-                <div style="margin-top: 40px; display: flex; gap: 15px;">
-                    <button onclick="window.history.back()" class="btn btn-secondary">Назад</button>
-                    <button onclick="editFromView(${eq.id})" class="btn btn-primary">✏️ Редактировать</button>
-                </div>
-            </div>
-        `;
-
-    } catch (err) {
-        viewContainer.innerHTML = `
-            <div style="text-align:center; padding: 50px;">
-                <h2 style="color: var(--danger);">Ошибка загрузки</h2>
-                <p>${err.message}</p>
-                <button onclick="window.history.back()" class="btn btn-secondary" style="margin-top:20px;">Вернуться назад</button>
-            </div>
-        `;
-    }
-}
-
-// Вспомогательная функция для кнопки редактирования со страницы просмотра
-window.editFromView = function(id) {
-    window.location.hash = ''; // Сбрасываем хэш, чтобы вернуться в основное приложение
-    // Небольшая задержка, чтобы успел отработать hashchange и показать главную страницу
-    setTimeout(() => {
-        showEquipmentForm(id);
-    }, 100);
-};

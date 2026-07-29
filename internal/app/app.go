@@ -8,6 +8,7 @@ import (
 	"mitm-departament/internal/config"
 	"mitm-departament/internal/db"
 	"mitm-departament/internal/handler"
+	"mitm-departament/internal/models"
 	"mitm-departament/internal/repository"
 	"mitm-departament/internal/server"
 	"mitm-departament/internal/service"
@@ -18,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 )
@@ -45,8 +47,31 @@ func Start(frontendFS embed.FS) {
 
 	logInstance.Info("initializing repository")
 	repo := repository.New(dbConn, logInstance)
-	svc := service.New(dbConn, repo.User, repo.Key, repo.KeyLog, repo.Equipment, logInstance)
-	handler := handler.New(svc.User, svc.Key, svc.Equipment, logInstance)
+	svc := service.New(dbConn, repo.User, repo.Token, repo.User, repo.Key, repo.KeyLog, repo.Equipment, repo.Photo, cfg.Auth, logInstance)
+	admin_phone := "7(980)3287291"
+	admin_email := "danilrulv22@gmail.com"
+	svc.User.Create(context.Background(), &models.User{
+		ID:       uuid.NewString(),
+		FullName: "Rulev Danil ADMIN",
+		Password: "12345678",
+		Role:     "admin",
+		Phone:    &admin_phone,
+		Email:    &admin_email,
+		IsActive: true,
+	})
+	user_phone := "7(981)3287291"
+	user_email := "danilrulv20@gmail.com"
+	svc.User.Create(context.Background(), &models.User{
+		ID:       uuid.NewString(),
+		FullName: "Rulev Danil USER",
+		Password: "12345678",
+		Role:     "user",
+		Phone:    &user_phone,
+		Email:    &user_email,
+		IsActive: true,
+	})
+
+	handler := handler.New(svc.Auth, svc.User, svc.Key, svc.Equipment, svc.Photo, cfg, logInstance)
 
 	handler.SetFrontendFS(frontendFS)
 

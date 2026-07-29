@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"embed"
+	"mitm-departament/internal/config"
 	"mitm-departament/internal/models"
 	"net/http"
 	"strings"
@@ -41,17 +42,20 @@ type Handler struct {
 	user      *UserHandler
 	key       *KeyHandler
 	equipment *EquipmentHandler
+	photo     *PhotoHandler
 	log       *zap.Logger
 
 	frontendFS      embed.FS
 	frontendFSReady bool
 }
 
-func New(userSvc UserService, keySvc KeyService, equipmentSvc EquipmentService, log *zap.Logger) *Handler {
+func New(authSvc AuthService, userSvc UserService, keySvc KeyService, equipmentSvc EquipmentService, photoSvc PhotoService, cfg *config.Config, log *zap.Logger) *Handler {
 	return &Handler{
+		auth:      NewAuthHandler(authSvc, cfg.Auth, log),
 		user:      NewUserHandler(userSvc, keySvc),
 		key:       NewKeyHandler(keySvc),
 		equipment: NewEquipmentHandler(equipmentSvc),
+		photo:     NewPhotoHandler(photoSvc, cfg.Photo),
 		log:       log,
 	}
 }
@@ -76,15 +80,19 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	api := router.Group("/api")
-	h.user.RegisterRoutes(api)
-
-	// 2. API Routes
-	apiV1 := router.Group("/api/v1", h.authMiddleware)
+	// ── Публичные API-роуты (БЕЗ auth middleware) ──
+	public := router.Group("/api/v1")
 	{
-		h.key.RegisterRoutes(apiV1)
-		h.equipment.RegisterRoutes(apiV1)
-		h.user.RegisterRoutes(apiV1)
+		h.auth.RegisterRoutes(public) // /api/v1/auth/signin, /refresh, /logout
+	}
+
+	// ── Защищённые API-роуты (С auth middleware) ──
+	protected := router.Group("/api/v1", h.authMiddleware)
+	{
+		h.key.RegisterRoutes(protected)
+		h.equipment.RegisterRoutes(protected)
+		h.photo.RegisterRoutes(protected)
+		h.user.RegisterRoutes(protected)
 	}
 
 	// 3. Раздача фронтенда (SPA)

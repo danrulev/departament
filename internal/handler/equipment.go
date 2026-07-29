@@ -58,7 +58,13 @@ func (h *EquipmentHandler) create(c *gin.Context) {
 		return
 	}
 
-	verificationDate, err := parseDate(req.VerificationDate)
+	last_verificationDate, err := parseDate(req.LastVerificationDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "неверный формат даты поверки (ожидается YYYY-MM-DD)"})
+		return
+	}
+
+	next_verificationDate, err := parseDate(req.NextVerificationDate)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "неверный формат даты поверки (ожидается YYYY-MM-DD)"})
 		return
@@ -70,14 +76,15 @@ func (h *EquipmentHandler) create(c *gin.Context) {
 	}
 
 	equipment := &models.Equipment{
-		Name:             req.Name,
-		Description:      req.Description,
-		Location:         req.Location,
-		Documentation:    req.Documentation,
-		InventoryNumber:  req.InventoryNumber,
-		ResponsibleID:    req.ResponsibleID,
-		Status:           status,
-		VerificationDate: verificationDate,
+		Name:                 req.Name,
+		Description:          req.Description,
+		Location:             req.Location,
+		Documentation:        req.Documentation,
+		InventoryNumber:      req.InventoryNumber,
+		ResponsibleID:        req.ResponsibleID,
+		Status:               status,
+		LastVerificationDate: last_verificationDate,
+		NextVerificationDate: next_verificationDate,
 	}
 
 	equipment.Status = status
@@ -176,7 +183,13 @@ func (h *EquipmentHandler) update(c *gin.Context) {
 		return
 	}
 
-	verificationDate, err := parseDate(req.VerificationDate)
+	last_verificationDate, err := parseDate(req.LastVerificationDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "неверный формат даты поверки (ожидается YYYY-MM-DD)"})
+		return
+	}
+
+	next_verificationDate, err := parseDate(req.NextVerificationDate)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "неверный формат даты поверки (ожидается YYYY-MM-DD)"})
 		return
@@ -192,7 +205,8 @@ func (h *EquipmentHandler) update(c *gin.Context) {
 	equipment.Documentation = req.Documentation
 	equipment.InventoryNumber = req.InventoryNumber
 	equipment.ResponsibleID = req.ResponsibleID
-	equipment.VerificationDate = verificationDate
+	equipment.LastVerificationDate = last_verificationDate
+	equipment.NextVerificationDate = next_verificationDate
 	if req.Status != nil {
 		equipment.Status = *req.Status
 	}

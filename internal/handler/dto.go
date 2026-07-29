@@ -124,42 +124,45 @@ type MessageResponse struct {
 // ========== Equipment ==========
 
 type CreateEquipmentRequest struct {
-	Name              string  `json:"name" binding:"required,min=1"`
-	Description       *string `json:"description"`
-	Location          *string `json:"location"`
-	Documentation     *string `json:"documentation"`
-	InventoryNumber   *string `json:"inventory_number"`
-	ResponsibleID     *string `json:"responsible_id"`
-	Status            *bool   `json:"status"`
-	UnavailableReason *string `json:"unavailable_reason"`
-	VerificationDate  *string `json:"verification_date"` // формат: "2006-01-02"
+	Name                 string  `json:"name" binding:"required,min=1"`
+	Description          *string `json:"description"`
+	Location             *string `json:"location" binding:"required,min=1"`
+	Documentation        *string `json:"documentation"`
+	InventoryNumber      *string `json:"inventory_number"`
+	ResponsibleID        *string `json:"responsible_id" binding:"required,min=1"`
+	Status               *bool   `json:"status"`
+	UnavailableReason    *string `json:"unavailable_reason"`
+	LastVerificationDate *string `json:"last_verification_date"`
+	NextVerificationDate *string `json:"next_verification_date"`
 }
 
 type UpdateEquipmentRequest struct {
-	Name              string  `json:"name" binding:"required,min=1"`
-	Description       *string `json:"description"`
-	Location          *string `json:"location"`
-	Documentation     *string `json:"documentation"`
-	InventoryNumber   *string `json:"inventory_number"`
-	ResponsibleID     *string `json:"responsible_id"`
-	Status            *bool   `json:"status"`
-	UnavailableReason *string `json:"unavailable_reason"`
-	VerificationDate  *string `json:"verification_date"`
+	Name                 string  `json:"name" binding:"required,min=1"`
+	Description          *string `json:"description"`
+	Location             *string `json:"location"`
+	Documentation        *string `json:"documentation"`
+	InventoryNumber      *string `json:"inventory_number"`
+	ResponsibleID        *string `json:"responsible_id"`
+	Status               *bool   `json:"status"`
+	UnavailableReason    *string `json:"unavailable_reason"`
+	LastVerificationDate *string `json:"last_verification_date"`
+	NextVerificationDate *string `json:"next_verification_date"`
 }
 
 type EquipmentResponse struct {
-	ID                int64   `json:"id"`
-	Name              string  `json:"name"`
-	Description       *string `json:"description,omitempty"`
-	Location          *string `json:"location,omitempty"`
-	Documentation     *string `json:"documentation,omitempty"`
-	InventoryNumber   *string `json:"inventory_number,omitempty"`
-	ResponsibleID     *string `json:"responsible_id,omitempty"`
-	Status            bool    `json:"status"`
-	UnavailableReason *string `json:"unavailable_reason,omitempty"`
-	VerificationDate  *string `json:"verification_date,omitempty"`
-	CreatedAt         string  `json:"created_at"`
-	UpdatedAt         string  `json:"updated_at"`
+	ID                   int64   `json:"id"`
+	Name                 string  `json:"name"`
+	Description          *string `json:"description,omitempty"`
+	Location             *string `json:"location,omitempty"`
+	Documentation        *string `json:"documentation,omitempty"`
+	InventoryNumber      *string `json:"inventory_number,omitempty"`
+	ResponsibleID        *string `json:"responsible_id,omitempty"`
+	Status               bool    `json:"status"`
+	UnavailableReason    *string `json:"unavailable_reason,omitempty"`
+	LastVerificationDate *string `json:"last_verification_date,omitempty"`
+	NextVerificationDate *string `json:"next_verification_date,omitempty"`
+	CreatedAt            string  `json:"created_at"`
+	UpdatedAt            string  `json:"updated_at"`
 }
 
 func ToEquipmentResponse(e *models.Equipment) EquipmentResponse {
@@ -176,9 +179,13 @@ func ToEquipmentResponse(e *models.Equipment) EquipmentResponse {
 		CreatedAt:         e.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt:         e.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
-	if e.VerificationDate != nil {
-		s := e.VerificationDate.Format("2006-01-02")
-		resp.VerificationDate = &s
+	if e.LastVerificationDate != nil {
+		s := e.LastVerificationDate.Format("2006-01-02")
+		resp.LastVerificationDate = &s
+	}
+	if e.NextVerificationDate != nil {
+		s := e.NextVerificationDate.Format("2006-01-02")
+		resp.NextVerificationDate = &s
 	}
 	return resp
 }

@@ -90,36 +90,24 @@ func (s *Handler) getRequestID(c *gin.Context) string {
 	return c.GetString(requestIDKey)
 }
 
-// FIX:
 func (h *Handler) authMiddleware(c *gin.Context) {
-	tokenID, err := getRefreshToken(c)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized,
-			ErrorResponse{Error: "требуется авторизация"})
-		return
-	}
-
-	// Валидируем refresh token в БД, а не просто наличие cookie
-	if err := h.auth.svc.ValidateRefreshSession(c.Request.Context(), tokenID); err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized,
-			ErrorResponse{Error: "сессия недействительна"})
-		return
-	}
-
-	accessToken, err := getAccessToken(c)
+	// 1. Достаём access token из заголовка
+	token, err := getAccessToken(c)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusUnauthorized,
 			ErrorResponse{Error: "отсутствует токен доступа"})
 		return
 	}
 
-	userID, role, err := h.auth.svc.ParseToken(c.Request.Context(), accessToken)
+	// 2. Валидируем JWT (без обращения к БД)
+	userID, role, err := h.auth.svc.ParseToken(c.Request.Context(), token)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusUnauthorized,
 			ErrorResponse{Error: "недействительный токен"})
 		return
 	}
 
+	// 3. Кладём в контекст
 	c.Set(userIDKey, userID)
 	c.Set(roleKey, role)
 	c.Next()
