@@ -704,6 +704,8 @@ async function renderArticlePage(id) {
 // ============================================================
 // ===================== СТРАНИЦА ПРОФИЛЯ =====================
 // ============================================================
+const myArtState = { search: '', status: '' };
+
 async function renderProfilePage() {
     document.getElementById('app').style.display = 'none';
     let view = document.getElementById('full-page-view');
@@ -759,7 +761,18 @@ async function renderMyArticlesPage() {
     try {
         const me = await api.getMe();
         const data = await api.getArticles({ author_id: me.id, limit: 100 });
-        const articles = data.articles || [];
+        const allArticles = data.articles || [];
+        
+        // Фильтрация
+        let articles = allArticles;
+        if (myArtState.search) {
+            const s = myArtState.search.toLowerCase();
+            articles = articles.filter(a => (a.title || '').toLowerCase().includes(s));
+        }
+        if (myArtState.status) {
+            articles = articles.filter(a => a.status === myArtState.status);
+        }
+        
         const listHtml = articles.length ? articles.map((a, i) => {
             const authors = (a.authors || []).map(x => x.name).join(', ');
             return `<div class="my-art-card" onclick="window.location.hash='#/article/view/${a.id}'">
@@ -776,8 +789,24 @@ async function renderMyArticlesPage() {
             <div class="ep-topbar"><button class="ep-back" onclick="window.location.hash='#/profile'">← В профиль</button><button class="btn btn-primary" onclick="showArticleForm()">+ Добавить статью</button></div>
             <div class="ep-header" style="background:linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);">
                 <div class="ep-id">МОИ ПУБЛИКАЦИИ</div><h1 class="ep-title" style="font-size:28px;">${UI.escape(me.full_name)}</h1>
-                <div class="ep-quick"><span>📚 Всего статей: ${articles.length}</span><span>👤 ${UI.escape(me.position || UI.roleName(me.role))}</span></div></div>
+                <div class="ep-quick"><span>📚 Всего статей: ${allArticles.length}</span><span>👤 ${UI.escape(me.position || UI.roleName(me.role))}</span></div></div>
+            <div class="my-art-filters" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+                <input type="text" id="myart-search" class="input" placeholder="Поиск по названию..." style="width:220px;" value="${UI.escape(myArtState.search)}">
+                <select id="myart-status-filter" class="input" style="width:150px;">
+                    <option value="">Все статусы</option>
+                    <option value="planned" ${myArtState.status === 'planned' ? 'selected' : ''}>План</option>
+                    <option value="submitted" ${myArtState.status === 'submitted' ? 'selected' : ''}>Подана</option>
+                    <option value="published" ${myArtState.status === 'published' ? 'selected' : ''}>Вышла</option>
+                </select>
+            </div>
             <div class="my-art-list">${listHtml}</div></div>`;
+        
+        // Обработчики фильтров
+        let t;
+        document.getElementById('myart-search').addEventListener('input', e => {
+            clearTimeout(t); t = setTimeout(() => { myArtState.search = e.target.value; renderMyArticlesPage(); }, 300);
+        });
+        document.getElementById('myart-status-filter').addEventListener('change', e => { myArtState.status = e.target.value; renderMyArticlesPage(); });
     } catch (err) {
         view.innerHTML = `<div class="ep-error"><div class="ep-error-icon">⚠️</div><h2>Не удалось загрузить публикации</h2><p>${UI.escape(err.message)}</p><button class="btn btn-secondary" onclick="window.location.hash='#/profile'">← В профиль</button></div>`;
     }
