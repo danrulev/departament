@@ -1,3 +1,4 @@
+```gitignore
 # Compiled and build artifacts
 *.pyc
 __pycache__/
@@ -16,16 +17,19 @@ build/
 .venv/
 venv/
 node_modules/
-.mypy_cache/
-.pytest_cache/
 target/
 .gradle/
+.mypy_cache/
+.pytest_cache/
+julia-*/
+zig*/
 
 # Logs and temp files
 *.log
 *.tmp
 *.swp
 *.swo
+*.out
 
 # Environment
 .env
@@ -36,7 +40,7 @@ target/
 .vscode/
 .idea/
 
-# System files
+# System
 .DS_Store
 Thumbs.db
 
@@ -68,3 +72,4 @@ htmlcov/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+```
