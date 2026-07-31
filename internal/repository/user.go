@@ -86,7 +86,7 @@ func (r *UserRepo) ListActive(ctx context.Context) ([]models.User, error) {
 func (r *UserRepo) GetByName(ctx context.Context, name string) ([]models.User, error) {
 	var users []models.User
 	err := r.db.SelectContext(ctx, &users,
-		`SELECT id, full_name, role, phone, email, is_active, created_at
+		`SELECT id, avatar, full_name, role, position, phone, email, is_active, created_at
 		 FROM users WHERE name like %?% ORDER BY full_name`)
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
