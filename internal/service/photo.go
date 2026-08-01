@@ -1,0 +1,102 @@
+package service
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"io"
+	"mime/multipart"
+	"mitm-departament/internal/config"
+	"mitm-departament/internal/models"
+	"os"
+	"path/filepath"
+
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+)
+
+type PhotoRepo interface {
+	Create(ctx context.Context, p *models.EquipmentPhoto) error
+	ListByEquipment(ctx context.Context, equipmentID int64) ([]models.EquipmentPhoto, error)
+	GetByID(ctx context.Context, id int64) (*models.EquipmentPhoto, error)
+	Delete(ctx context.Context, id int64) error
+	CountByEquipment(ctx context.Context, equipmentID int64) (int, error)
+}
+
+type PhotoService struct {
+	repo PhotoRepo
+
+	cfg config.PhotoConfig
+	log *zap.Logger
+}
+
+func NewPhotoService(repo PhotoRepo, cfg config.PhotoConfig, log *zap.Logger) *PhotoService {
+	return &PhotoService{repo: repo, cfg: cfg, log: log}
+}
+
+func (p *PhotoService) Create(ctx context.Context, file multipart.File, ext string, photo *models.EquipmentPhoto) error {
+	count, err := p.repo.CountByEquipment(ctx, photo.EquipmentID)
+	if err != nil {
+		return err
+	}
+	if count >= p.cfg.MaxPhotos {
+		return fmt.Errorf("Превышен лимит фотографий для этого оборудования")
+	}
+
+	storedName := uuid.New().String() + ext
+	dst := filepath.Join(p.cfg.EquipmentPhotoDir, storedName)
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	if _, err := io.Copy(out, file); err != nil {
+		os.Remove(dst)
+		return err
+	}
+
+	err = p.repo.Create(ctx, photo)
+	if err != nil {
+		os.Remove(dst) // откатываем файл
+		return err
+	}
+
+	return nil
+}
+
+func (p *PhotoService) ListByEquipment(ctx context.Context, equipmentID int64) ([]models.EquipmentPhoto, error) {
+	return p.repo.ListByEquipment(ctx, equipmentID)
+}
+
+func (p *PhotoService) GetByID(ctx context.Context, id int64) (*models.EquipmentPhoto, error) {
+	return p.repo.GetByID(ctx, id)
+}
+
+func (p *PhotoService) Delete(ctx context.Context, id int64) error {
+	photo, err := p.repo.GetByID(ctx, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("photo %d not found", id)
+		}
+		return fmt.Errorf("get photo by id: %w", err)
+	}
+
+	// Удаляем файл
+	filePath := filepath.Join(p.cfg.EquipmentPhotoDir, photo.StoredName)
+	_ = os.Remove(filePath)
+
+	// Удаляем из БД
+	if err := p.repo.Delete(ctx, id); err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("photo %d not found", id)
+		}
+		return fmt.Errorf("get photo by id: %w", err)
+	}
+	return p.repo.Delete(ctx, id)
+}
+
+func (p *PhotoService) CountByEquipment(ctx context.Context, equipmentID int64) (int, error) {
+	return p.repo.CountByEquipment(ctx, equipmentID)
+}

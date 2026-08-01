@@ -103,7 +103,8 @@ async function renderHeaderUser() {
     chip.onclick = () => { window.location.hash = '#/profile'; };
     try {
         const me = await api.getMe();
-        const src = me.avatar || api.avatarUrl(me.id);
+        // ИСПРАВЛЕНО: всегда используем api.avatarUrl
+        const src = api.avatarUrl(me.id); 
         chip.innerHTML = `
             <img class="user-chip-avatar" src="${src}" alt="">
             <span class="user-chip-name">${UI.escape(me.full_name)}</span>
@@ -729,7 +730,7 @@ async function renderProfilePage() {
     window.scrollTo(0, 0);
     try {
         const me = await api.getMe();
-        const avatarSrc = me.avatar || api.avatarUrl(me.id);
+        const avatarSrc = api.avatarUrl(me.id);
         view.innerHTML = `<div class="pf-container">
             <div class="ep-topbar"><button class="ep-back" onclick="window.location.hash=''">← Назад</button>${isAdmin() ? `<button class="btn btn-primary" onclick="showUserForm('${me.id}')">✏️ Редактировать</button>` : ''}</div>
             <div class="pf-header">
@@ -774,7 +775,7 @@ async function renderUserProfilePage(userId) {
     window.scrollTo(0, 0);
     try {
         const user = await api.getUser(userId);
-        const avatarSrc = user.avatar || api.avatarUrl(user.id);
+        const avatarSrc = api.avatarUrl(user.id);
         view.innerHTML = `<div class="pf-container">
             <div class="ep-topbar"><button class="ep-back" onclick="window.location.hash='#/users'">← Назад</button>${isAdmin() ? `<button class="btn btn-primary" onclick="showUserForm('${user.id}')">✏️ Редактировать</button>` : ''}</div>
             <div class="pf-header">
@@ -1106,10 +1107,21 @@ async function showUserForm(id = null) {
 function renderAvatarPreview(user) {
     const container = document.getElementById('avatar-preview');
     if (!container) return;
-    const src = (user.avatar && user.avatar.startsWith('/api/')) ? user.avatar : api.avatarUrl(user.id);
+    
+    // ИСПРАВЛЕНО: используем API URL. 
+    // Если передан объект с уже модифицированным URL (с cache-buster), используем его.
+    const src = (user.avatar && user.avatar.includes('/users/avatars/')) 
+        ? user.avatar 
+        : api.avatarUrl(user.id);
+        
     container.innerHTML = `<img src="${src}" alt="">`;
     const img = container.querySelector('img');
-    img.addEventListener('error', () => { const span = document.createElement('span'); span.className = 'avatar-preview-initials'; span.textContent = initials(user.full_name); img.replaceWith(span); });
+    img.addEventListener('error', () => { 
+        const span = document.createElement('span'); 
+        span.className = 'avatar-preview-initials'; 
+        span.textContent = initials(user.full_name); 
+        img.replaceWith(span); 
+    });
 }
 
 window.uploadUserAvatarFromFile = async function(userId, input) {
@@ -1119,12 +1131,29 @@ window.uploadUserAvatarFromFile = async function(userId, input) {
     try {
         await api.uploadUserAvatar(userId, file);
         UI.toast('Аватар обновлён', 'success');
-        const u = await api.getUser(userId);
-        u.avatar = api.avatarUrl(userId) + '?v=' + Date.now();
-        renderAvatarPreview(u); renderHeaderUser();
+        
+        // Генерируем URL с принудительным сбросом кэша браузера
+        const freshUrl = api.avatarUrl(userId) + '?v=' + Date.now();
+        
+        const container = document.getElementById('avatar-preview');
+        if (container) {
+            container.innerHTML = `<img src="${freshUrl}" alt="">`;
+            const img = container.querySelector('img');
+            img.addEventListener('error', () => { 
+                const span = document.createElement('span'); 
+                span.className = 'avatar-preview-initials'; 
+                span.textContent = initials((await api.getUser(userId)).full_name); 
+                img.replaceWith(span); 
+            });
+        }
+        
+        renderHeaderUser();
         if (window.location.hash === '#/profile') renderProfilePage();
-    } catch (err) { UI.toast(err.message, 'error'); }
-    finally { input.value = ''; }
+    } catch (err) { 
+        UI.toast(err.message, 'error'); 
+    } finally { 
+        input.value = ''; 
+    }
 };
 
 window.deleteUserAvatarFromForm = async function(userId) {

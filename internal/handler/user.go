@@ -35,6 +35,7 @@ func (h *UserHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		users.PUT("/:id", h.Update, requireRoles(adminKey))
 		users.DELETE("/:id", h.Deactivate, requireRoles(adminKey))
 		users.GET("/:id/history", h.History)
+		users.GET("/avatars/:id", h.GetAvatar)
 		users.POST("/:id/avatar", h.UploadAvatar, requireRoles(adminKey))   // ← новое
 		users.DELETE("/:id/avatar", h.DeleteAvatar, requireRoles(adminKey)) // ← новое
 	}
@@ -214,6 +215,40 @@ func (h *UserHandler) UploadAvatar(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"avatar": "/api/v1/avatars/" + id})
+}
+
+func (h *UserHandler) GetAvatar(c *gin.Context) {
+	id := c.Param("id")
+
+	user, err := h.userSvc.GetByID(c.Request.Context(), id)
+	if err != nil || user == nil || user.Avatar == nil || *user.Avatar == "" {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
+	filePath := filepath.Join(h.cfg.AvatarPhotoDir, *user.Avatar)
+
+	// Проверяем, существует ли файл физически
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
+	// Определяем Content-Type по расширению файла
+	ext := filepath.Ext(filePath)
+	contentType := "image/jpeg" // по умолчанию
+	switch ext {
+	case ".png":
+		contentType = "image/png"
+	case ".webp":
+		contentType = "image/webp"
+	case ".gif":
+		contentType = "image/gif"
+	}
+
+	c.Header("Content-Type", contentType)
+	c.Header("Cache-Control", "public, max-age=31536000") // Кэширование аватарок
+	c.File(filePath)
 }
 
 func (h *UserHandler) DeleteAvatar(c *gin.Context) {

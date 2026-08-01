@@ -4,8 +4,7 @@ package handler
 
 import (
 	"context"
-	"fmt"
-	"io"
+	"mime/multipart"
 	"mitm-departament/internal/config"
 	"mitm-departament/internal/models"
 	"net/http"
@@ -13,7 +12,6 @@ import (
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 var allowedTypes = map[string]string{
@@ -24,22 +22,22 @@ var allowedTypes = map[string]string{
 }
 
 type PhotoHandler struct {
-	repo PhotoService
-	cfg  config.PhotoConfig
+	svc PhotoService
+	cfg config.PhotoConfig
 }
 
 type PhotoService interface {
-	Create(ctx context.Context, p *models.EquipmentPhoto) error
+	Create(ctx context.Context, file multipart.File, ext string, photo *models.EquipmentPhoto) error
 	ListByEquipment(ctx context.Context, equipmentID int64) ([]models.EquipmentPhoto, error)
 	GetByID(ctx context.Context, id int64) (*models.EquipmentPhoto, error)
 	Delete(ctx context.Context, id int64) error
 	CountByEquipment(ctx context.Context, equipmentID int64) (int, error)
 }
 
-func NewPhotoHandler(repo PhotoService, cfg config.PhotoConfig) *PhotoHandler {
+func NewPhotoHandler(svc PhotoService, cfg config.PhotoConfig) *PhotoHandler {
 	// Создаём папку для фото при старте
 	_ = os.MkdirAll(cfg.EquipmentPhotoDir, 0755)
-	return &PhotoHandler{repo: repo, cfg: cfg}
+	return &PhotoHandler{svc: svc, cfg: cfg}
 }
 
 func (h *PhotoHandler) RegisterRoutes(rg *gin.RouterGroup) {
@@ -57,17 +55,6 @@ func (h *PhotoHandler) RegisterPublicRoutes(rg *gin.RouterGroup) {
 func (h *PhotoHandler) upload(c *gin.Context) {
 	equipID, ok := parseIDParam(c, "id")
 	if !ok {
-		return
-	}
-
-	// Лимит фото
-	count, err := h.repo.CountByEquipment(c.Request.Context(), equipID)
-	if err != nil {
-		handleError(c, err)
-		return
-	}
-	if count >= h.cfg.MaxPhotos {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: fmt.Sprintf("максимум %d фото", h.cfg.MaxPhotos)})
 		return
 	}
 
@@ -92,23 +79,6 @@ func (h *PhotoHandler) upload(c *gin.Context) {
 		return
 	}
 
-	// Сохраняем на диск
-	storedName := uuid.New().String() + ext
-	dst := filepath.Join(h.cfg.EquipmentPhotoDir, storedName)
-
-	out, err := os.Create(dst)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "ошибка сохранения файла"})
-		return
-	}
-	defer out.Close()
-
-	if _, err := io.Copy(out, file); err != nil {
-		os.Remove(dst)
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "ошибка записи файла"})
-		return
-	}
-
 	// Метаданные в БД
 	userID, _ := getUserID(c)
 	var uploadedBy *string
@@ -119,14 +89,12 @@ func (h *PhotoHandler) upload(c *gin.Context) {
 	photo := &models.EquipmentPhoto{
 		EquipmentID: equipID,
 		Filename:    header.Filename,
-		StoredName:  storedName,
 		ContentType: contentType,
 		SizeBytes:   header.Size,
 		UploadedBy:  uploadedBy,
 	}
 
-	if err := h.repo.Create(c.Request.Context(), photo); err != nil {
-		os.Remove(dst) // откатываем файл
+	if err := h.svc.Create(c.Request.Context(), file, ext, photo); err != nil {
 		handleError(c, err)
 		return
 	}
@@ -141,7 +109,7 @@ func (h *PhotoHandler) list(c *gin.Context) {
 		return
 	}
 
-	photos, err := h.repo.ListByEquipment(c.Request.Context(), equipID)
+	photos, err := h.svc.ListByEquipment(c.Request.Context(), equipID)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -157,7 +125,7 @@ func (h *PhotoHandler) serve(c *gin.Context) {
 		return
 	}
 
-	photo, err := h.repo.GetByID(c.Request.Context(), id)
+	photo, err := h.svc.GetByID(c.Request.Context(), id)
 	if err != nil || photo == nil {
 		c.JSON(http.StatusNotFound, ErrorResponse{Error: "фото не найдено"})
 		return
@@ -180,21 +148,7 @@ func (h *PhotoHandler) delete(c *gin.Context) {
 		return
 	}
 
-	photo, err := h.repo.GetByID(c.Request.Context(), id)
-	if err != nil || photo == nil {
-		c.JSON(http.StatusNotFound, ErrorResponse{Error: "фото не найдено"})
-		return
-	}
-
-	// Удаляем файл
-	filePath := filepath.Join(h.cfg.EquipmentPhotoDir, photo.StoredName)
-	_ = os.Remove(filePath)
-
-	// Удаляем из БД
-	if err := h.repo.Delete(c.Request.Context(), id); err != nil {
-		handleError(c, err)
-		return
-	}
+	h.svc.Delete(c.Request.Context(), id)
 
 	c.JSON(http.StatusOK, MessageResponse{Message: "фото удалено"})
 }
