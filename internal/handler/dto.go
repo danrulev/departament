@@ -42,13 +42,15 @@ type UserResponse struct {
 }
 
 func ToUserResponse(u *models.User) UserResponse {
-	avatar := ""
+	var avatar *string
 	if u.Avatar != nil && *u.Avatar != "" {
-		avatar = "/api/v1/avatars/" + u.ID
+		a := "/api/v1/avatars/" + u.ID
+		avatar = &a
 	}
+
 	return UserResponse{
 		ID:        u.ID,
-		Avatar:    &avatar,
+		Avatar:    avatar,
 		FullName:  u.FullName,
 		Role:      u.Role,
 		Position:  u.Position,

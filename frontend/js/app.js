@@ -212,20 +212,23 @@ function handleRoute() {
         setActiveSidebarItem('articles');
         return;
     }
-    const userMatch = window.location.hash.match(/^#\/user\/(\d+)$/);
+
+    const userMatch = window.location.hash.match(/^#\/user\/([^/]+)$/);
     if (userMatch) {
         if (!currentUser) { showLogin(); return; }
         renderUserProfilePage(userMatch[1]);
         setActiveSidebarItem('users');
         return;
     }
-    const userArtMatch = window.location.hash.match(/^#\/my-articles\/(\d+)$/);
+
+    const userArtMatch = window.location.hash.match(/^#\/my-articles\/([^/]+)$/);
     if (userArtMatch) {
         if (!currentUser) { showLogin(); return; }
         renderUserArticlesPage(userArtMatch[1]);
         setActiveSidebarItem('users');
         return;
     }
+
     if (window.location.hash === '#/profile') {
         if (!currentUser) { showLogin(); return; }
         renderProfilePage();
