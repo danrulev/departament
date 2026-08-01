@@ -83,20 +83,12 @@ func (p *PhotoService) Delete(ctx context.Context, id int64) error {
 		return fmt.Errorf("get photo by id: %w", err)
 	}
 
-	// Удаляем файл
 	filePath := filepath.Join(p.cfg.EquipmentPhotoDir, photo.StoredName)
 	_ = os.Remove(filePath)
 
-	// Удаляем из БД
 	if err := p.repo.Delete(ctx, id); err != nil {
-		if err == sql.ErrNoRows {
-			return fmt.Errorf("photo %d not found", id)
-		}
-		return fmt.Errorf("get photo by id: %w", err)
+		return fmt.Errorf("delete photo: %w", err)
 	}
-	return p.repo.Delete(ctx, id)
-}
 
-func (p *PhotoService) CountByEquipment(ctx context.Context, equipmentID int64) (int, error) {
-	return p.repo.CountByEquipment(ctx, equipmentID)
+	return nil
 }

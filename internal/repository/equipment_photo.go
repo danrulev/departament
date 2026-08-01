@@ -38,7 +38,7 @@ func (r *PhotoRepo) ListByEquipment(ctx context.Context, equipmentID int64) ([]m
 	var photos []models.EquipmentPhoto
 	err := r.db.SelectContext(ctx, &photos,
 		`SELECT id, equipment_id, filename, stored_name, content_type, size_bytes, uploaded_by, created_at
-         FROM equipment_photos WHERE equipment_id = ? ORDER BY created_at`, equipmentID)
+     FROM equipment_photos WHERE equipment_id = ? ORDER BY id ASC`, equipmentID)
 	if err != nil {
 		return nil, fmt.Errorf("list photos: %w", err)
 	}

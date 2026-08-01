@@ -31,7 +31,6 @@ type EquipmentPhotoService interface {
 	ListByEquipment(ctx context.Context, equipmentID int64) ([]models.EquipmentPhoto, error)
 	GetByID(ctx context.Context, id int64) (*models.EquipmentPhoto, error)
 	Delete(ctx context.Context, id int64) error
-	CountByEquipment(ctx context.Context, equipmentID int64) (int, error)
 }
 
 func NewPhotoHandler(svc EquipmentPhotoService, cfg config.PhotoConfig) *EquipmentPhotoHandler {
