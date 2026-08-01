@@ -1,12 +1,11 @@
 package handler
 
 import (
-	"io"
+	"fmt"
 	"mitm-departament/internal/config"
 	"mitm-departament/internal/models"
 	"net/http"
 	"os"
-	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 )
@@ -116,7 +115,9 @@ func (h *UserHandler) Update(c *gin.Context) {
 		user.IsActive = *req.IsActive
 	}
 	user.Position = req.Position
-	user.Avatar = req.Avatar
+	if req.Avatar != nil {
+		user.Avatar = req.Avatar
+	}
 
 	if err := h.userSvc.Update(c.Request.Context(), user); err != nil {
 		handleError(c, err)
@@ -161,10 +162,8 @@ func (h *UserHandler) History(c *gin.Context) {
 
 func (h *UserHandler) UploadAvatar(c *gin.Context) {
 	id := c.Param("id")
-
-	user, err := h.userSvc.GetByID(c.Request.Context(), id)
-	if err != nil || user == nil {
-		c.JSON(http.StatusNotFound, ErrorResponse{Error: "пользователь не найден"})
+	if id == "" {
+		handleError(c, fmt.Errorf("empty id param"))
 		return
 	}
 
@@ -187,28 +186,7 @@ func (h *UserHandler) UploadAvatar(c *gin.Context) {
 		return
 	}
 
-	// Удаляем старый файл
-	if user.Avatar != nil && *user.Avatar != "" {
-		_ = os.Remove(filepath.Join(h.cfg.AvatarPhotoDir, *user.Avatar))
-	}
-
-	storedName := "avatar_" + id + ext
-	dst := filepath.Join(h.cfg.AvatarPhotoDir, storedName)
-
-	out, err := os.Create(dst)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "ошибка сохранения"})
-		return
-	}
-	defer out.Close()
-	if _, err := io.Copy(out, file); err != nil {
-		os.Remove(dst)
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "ошибка записи"})
-		return
-	}
-
-	if err := h.userSvc.SetAvatar(c.Request.Context(), id, storedName); err != nil {
-		os.Remove(dst)
+	if err := h.userSvc.SetAvatar(c.Request.Context(), id, file, header, ext); err != nil {
 		handleError(c, err)
 		return
 	}
@@ -219,16 +197,7 @@ func (h *UserHandler) UploadAvatar(c *gin.Context) {
 func (h *UserHandler) DeleteAvatar(c *gin.Context) {
 	id := c.Param("id")
 
-	user, err := h.userSvc.GetByID(c.Request.Context(), id)
-	if err != nil || user == nil {
-		c.JSON(http.StatusNotFound, ErrorResponse{Error: "пользователь не найден"})
-		return
-	}
-
-	if user.Avatar != nil && *user.Avatar != "" {
-		_ = os.Remove(filepath.Join(h.cfg.AvatarPhotoDir, *user.Avatar))
-	}
-	if err := h.userSvc.SetAvatar(c.Request.Context(), id, ""); err != nil {
+	if err := h.userSvc.DeleteAvatar(c.Request.Context(), id); err != nil {
 		handleError(c, err)
 		return
 	}

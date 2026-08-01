@@ -33,16 +33,17 @@ func New(
 	equipmentRepo EquipmentRepo,
 	photo PhotoRepo,
 
-	token config.AuthCfg,
+	cfg *config.Config,
+
 	log *zap.Logger,
 ) *Service {
 	hasher := hasher.NewHasher()
 	return &Service{
-		Auth:      NewAuthService(authUserRepo, tokenRepo, token, hasher, log),
+		Auth:      NewAuthService(authUserRepo, tokenRepo, cfg.Auth, hasher, log),
 		Article:   NewArticleService(articleRepo, log),
-		User:      NewUserService(userRepo, hasher, log),
+		User:      NewUserService(userRepo, cfg.Photo, hasher, log),
 		Key:       NewKeyService(keyRepo, keyLogRepo, db, log),
 		Equipment: NewEquipmentService(equipmentRepo, log),
-		Photo:     NewPhotoService(photo, log),
+		Photo:     NewPhotoService(photo, cfg.Photo, log),
 	}
 }

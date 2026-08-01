@@ -103,7 +103,8 @@ async function renderHeaderUser() {
     chip.onclick = () => { window.location.hash = '#/profile'; };
     try {
         const me = await api.getMe();
-        const src = me.avatar || api.avatarUrl(me.id);
+        // ИСПРАВЛЕНО: всегда используем api.avatarUrl
+        const src = api.avatarUrl(me.id); 
         chip.innerHTML = `
             <img class="user-chip-avatar" src="${src}" alt="">
             <span class="user-chip-name">${UI.escape(me.full_name)}</span>
@@ -209,6 +210,20 @@ function handleRoute() {
         if (!currentUser) { showLogin(); return; }
         renderArticlePage(parseInt(artMatch[1]));
         setActiveSidebarItem('articles');
+        return;
+    }
+    const userMatch = window.location.hash.match(/^#\/user\/(\d+)$/);
+    if (userMatch) {
+        if (!currentUser) { showLogin(); return; }
+        renderUserProfilePage(userMatch[1]);
+        setActiveSidebarItem('users');
+        return;
+    }
+    const userArtMatch = window.location.hash.match(/^#\/my-articles\/(\d+)$/);
+    if (userArtMatch) {
+        if (!currentUser) { showLogin(); return; }
+        renderUserArticlesPage(userArtMatch[1]);
+        setActiveSidebarItem('users');
         return;
     }
     if (window.location.hash === '#/profile') {
@@ -704,6 +719,8 @@ async function renderArticlePage(id) {
 // ============================================================
 // ===================== СТРАНИЦА ПРОФИЛЯ =====================
 // ============================================================
+const myArtState = { search: '', status: '' };
+
 async function renderProfilePage() {
     document.getElementById('app').style.display = 'none';
     let view = document.getElementById('full-page-view');
@@ -713,7 +730,7 @@ async function renderProfilePage() {
     window.scrollTo(0, 0);
     try {
         const me = await api.getMe();
-        const avatarSrc = me.avatar || api.avatarUrl(me.id);
+        const avatarSrc = api.avatarUrl(me.id);
         view.innerHTML = `<div class="pf-container">
             <div class="ep-topbar"><button class="ep-back" onclick="window.location.hash=''">← Назад</button>${isAdmin() ? `<button class="btn btn-primary" onclick="showUserForm('${me.id}')">✏️ Редактировать</button>` : ''}</div>
             <div class="pf-header">
@@ -749,6 +766,51 @@ async function renderProfilePage() {
     }
 }
 
+async function renderUserProfilePage(userId) {
+    document.getElementById('app').style.display = 'none';
+    let view = document.getElementById('full-page-view');
+    if (!view) { view = document.createElement('div'); view.id = 'full-page-view'; document.body.appendChild(view); }
+    view.style.display = 'block';
+    view.innerHTML = '<div class="ep-loading">Загрузка профиля...</div>';
+    window.scrollTo(0, 0);
+    try {
+        const user = await api.getUser(userId);
+        const avatarSrc = api.avatarUrl(user.id);
+        view.innerHTML = `<div class="pf-container">
+            <div class="ep-topbar"><button class="ep-back" onclick="window.location.hash='#/users'">← Назад</button>${isAdmin() ? `<button class="btn btn-primary" onclick="showUserForm('${user.id}')">✏️ Редактировать</button>` : ''}</div>
+            <div class="pf-header">
+                <div class="pf-avatar"><img id="pf-avatar-img" src="${avatarSrc}" alt="${UI.escape(user.full_name)}"></div>
+                <div class="pf-identity">
+                    <div class="pf-role-line"><span class="pf-role">${UI.roleName(user.role)}</span>${user.is_active ? '<span class="pf-active">● активен</span>' : '<span class="pf-inactive">неактивен</span>'}</div>
+                    <h1 class="pf-name">${UI.escape(user.full_name)}</h1>
+                    ${user.position ? `<div class="pf-position">${UI.escape(user.position)}</div>` : ''}
+                    <div class="pf-contacts">${user.email ? `<span>✉️ ${UI.escape(user.email)}</span>` : ''}${user.phone ? `<span>📞 ${UI.escape(user.phone)}</span>` : ''}</div>
+                </div>
+            </div>
+            <div class="pf-grid">
+                <div class="ep-card"><h2 class="ep-card-title">Сведения</h2>
+                    <div class="ep-fact"><span class="ep-label">Должность</span><span class="ep-value">${UI.escape(user.position || '—')}</span></div>
+                    <div class="ep-fact"><span class="ep-label">Роль</span><span class="ep-value">${UI.roleName(user.role)}</span></div>
+                    <div class="ep-fact"><span class="ep-label">Email</span><span class="ep-value">${UI.escape(user.email || '—')}</span></div>
+                    <div class="ep-fact"><span class="ep-label">Телефон</span><span class="ep-value">${UI.escape(user.phone || '—')}</span></div>
+                    <div class="ep-fact"><span class="ep-label">В системе с</span><span class="ep-value">${UI.formatDate(user.created_at)}</span></div>
+                    <div class="ep-fact"><span class="ep-label">ID</span><span class="ep-value" style="font-size:11px;">${user.id}</span></div>
+                </div>
+                <div class="ep-card"><h2 class="ep-card-title">Сервисы</h2>
+                    <div class="pf-service pf-service-clickable" onclick="window.location.hash='#/my-articles/${user.id}'">
+                        <span class="pf-service-icon">📚</span><div class="pf-service-body"><div class="pf-service-name">Публикации</div><div class="pf-service-desc">Статьи, где пользователь автор или соавтор</div></div><span class="pf-service-arrow">→</span>
+                    </div>
+                    <div class="pf-service"><span class="pf-service-icon">📅</span><div class="pf-service-body"><div class="pf-service-name">Расписание</div><div class="pf-service-desc">Пары и консультации</div></div><span class="pf-soon">скоро</span></div>
+                    <div class="pf-service"><span class="pf-service-icon">🔑</span><div class="pf-service-body"><div class="pf-service-name">Ключи</div><div class="pf-service-desc">Ключи на руках и история</div></div><span class="pf-soon">скоро</span></div>
+                </div>
+            </div></div>`;
+        const img = document.getElementById('pf-avatar-img');
+        img.addEventListener('error', () => { const span = document.createElement('span'); span.className = 'pf-initials'; span.textContent = initials(user.full_name); img.replaceWith(span); });
+    } catch (err) {
+        view.innerHTML = `<div class="ep-error"><div class="ep-error-icon">⚠️</div><h2>Не удалось загрузить профиль</h2><p>${UI.escape(err.message)}</p><button class="btn btn-secondary" onclick="window.location.hash='#/users'">← Вернуться</button></div>`;
+    }
+}
+
 async function renderMyArticlesPage() {
     document.getElementById('app').style.display = 'none';
     let view = document.getElementById('full-page-view');
@@ -759,7 +821,18 @@ async function renderMyArticlesPage() {
     try {
         const me = await api.getMe();
         const data = await api.getArticles({ author_id: me.id, limit: 100 });
-        const articles = data.articles || [];
+        const allArticles = data.articles || [];
+        
+        // Фильтрация
+        let articles = allArticles;
+        if (myArtState.search) {
+            const s = myArtState.search.toLowerCase();
+            articles = articles.filter(a => (a.title || '').toLowerCase().includes(s));
+        }
+        if (myArtState.status) {
+            articles = articles.filter(a => a.status === myArtState.status);
+        }
+        
         const listHtml = articles.length ? articles.map((a, i) => {
             const authors = (a.authors || []).map(x => x.name).join(', ');
             return `<div class="my-art-card" onclick="window.location.hash='#/article/view/${a.id}'">
@@ -776,10 +849,87 @@ async function renderMyArticlesPage() {
             <div class="ep-topbar"><button class="ep-back" onclick="window.location.hash='#/profile'">← В профиль</button><button class="btn btn-primary" onclick="showArticleForm()">+ Добавить статью</button></div>
             <div class="ep-header" style="background:linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);">
                 <div class="ep-id">МОИ ПУБЛИКАЦИИ</div><h1 class="ep-title" style="font-size:28px;">${UI.escape(me.full_name)}</h1>
-                <div class="ep-quick"><span>📚 Всего статей: ${articles.length}</span><span>👤 ${UI.escape(me.position || UI.roleName(me.role))}</span></div></div>
+                <div class="ep-quick"><span>📚 Всего статей: ${allArticles.length}</span><span>👤 ${UI.escape(me.position || UI.roleName(me.role))}</span></div></div>
+            <div class="my-art-filters" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+                <input type="text" id="myart-search" class="input" placeholder="Поиск по названию..." style="width:220px;" value="${UI.escape(myArtState.search)}">
+                <select id="myart-status-filter" class="input" style="width:150px;">
+                    <option value="">Все статусы</option>
+                    <option value="planned" ${myArtState.status === 'planned' ? 'selected' : ''}>План</option>
+                    <option value="submitted" ${myArtState.status === 'submitted' ? 'selected' : ''}>Подана</option>
+                    <option value="published" ${myArtState.status === 'published' ? 'selected' : ''}>Вышла</option>
+                </select>
+            </div>
             <div class="my-art-list">${listHtml}</div></div>`;
+        
+        // Обработчики фильтров
+        let t;
+        document.getElementById('myart-search').addEventListener('input', e => {
+            clearTimeout(t); t = setTimeout(() => { myArtState.search = e.target.value; renderMyArticlesPage(); }, 300);
+        });
+        document.getElementById('myart-status-filter').addEventListener('change', e => { myArtState.status = e.target.value; renderMyArticlesPage(); });
     } catch (err) {
         view.innerHTML = `<div class="ep-error"><div class="ep-error-icon">⚠️</div><h2>Не удалось загрузить публикации</h2><p>${UI.escape(err.message)}</p><button class="btn btn-secondary" onclick="window.location.hash='#/profile'">← В профиль</button></div>`;
+    }
+}
+
+async function renderUserArticlesPage(userId) {
+    document.getElementById('app').style.display = 'none';
+    let view = document.getElementById('full-page-view');
+    if (!view) { view = document.createElement('div'); view.id = 'full-page-view'; document.body.appendChild(view); }
+    view.style.display = 'block';
+    view.innerHTML = '<div class="ep-loading">Загрузка публикаций...</div>';
+    window.scrollTo(0, 0);
+    try {
+        const user = await api.getUser(userId);
+        const data = await api.getArticles({ author_id: userId, limit: 100 });
+        const allArticles = data.articles || [];
+        
+        // Фильтрация
+        let articles = allArticles;
+        if (myArtState.search) {
+            const s = myArtState.search.toLowerCase();
+            articles = articles.filter(a => (a.title || '').toLowerCase().includes(s));
+        }
+        if (myArtState.status) {
+            articles = articles.filter(a => a.status === myArtState.status);
+        }
+        
+        const listHtml = articles.length ? articles.map((a, i) => {
+            const authors = (a.authors || []).map(x => x.name).join(', ');
+            return `<div class="my-art-card" onclick="window.location.hash='#/article/view/${a.id}'">
+                <div class="my-art-num">${i + 1}</div>
+                <div class="my-art-body">
+                    <div class="my-art-title">${UI.escape(a.title)}</div>
+                    <div class="my-art-authors">${UI.escape(authors)}</div>
+                    <div class="my-art-meta">${a.details ? `<span>📖 ${UI.escape(a.details)}</span>` : ''}${a.indexing ? `<span>📊 ${UI.escape(a.indexing)}</span>` : ''}${a.funding ? `<span>💰 ${UI.escape(a.funding)}</span>` : ''}</div>
+                </div>
+                <span class="badge badge-${a.status}">${articleStatusName(a.status)}</span></div>`;
+        }).join('') : `<div class="my-art-empty"><div class="my-art-empty-icon">📚</div><h3>У пользователя нет публикаций</h3><p>Публикации этого автора отсутствуют в системе</p></div>`;
+
+        view.innerHTML = `<div class="pf-container">
+            <div class="ep-topbar"><button class="ep-back" onclick="window.location.hash='#/user/${userId}'">← В профиль</button></div>
+            <div class="ep-header" style="background:linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);">
+                <div class="ep-id">ПУБЛИКАЦИИ</div><h1 class="ep-title" style="font-size:28px;">${UI.escape(user.full_name)}</h1>
+                <div class="ep-quick"><span>📚 Всего статей: ${allArticles.length}</span><span>👤 ${UI.escape(user.position || UI.roleName(user.role))}</span></div></div>
+            <div class="my-art-filters" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+                <input type="text" id="myart-search" class="input" placeholder="Поиск по названию..." style="width:220px;" value="${UI.escape(myArtState.search)}">
+                <select id="myart-status-filter" class="input" style="width:150px;">
+                    <option value="">Все статусы</option>
+                    <option value="planned" ${myArtState.status === 'planned' ? 'selected' : ''}>План</option>
+                    <option value="submitted" ${myArtState.status === 'submitted' ? 'selected' : ''}>Подана</option>
+                    <option value="published" ${myArtState.status === 'published' ? 'selected' : ''}>Вышла</option>
+                </select>
+            </div>
+            <div class="my-art-list">${listHtml}</div></div>`;
+        
+        // Обработчики фильтров
+        let t;
+        document.getElementById('myart-search').addEventListener('input', e => {
+            clearTimeout(t); t = setTimeout(() => { myArtState.search = e.target.value; renderUserArticlesPage(userId); }, 300);
+        });
+        document.getElementById('myart-status-filter').addEventListener('change', e => { myArtState.status = e.target.value; renderUserArticlesPage(userId); });
+    } catch (err) {
+        view.innerHTML = `<div class="ep-error"><div class="ep-error-icon">⚠️</div><h2>Не удалось загрузить публикации</h2><p>${UI.escape(err.message)}</p><button class="btn btn-secondary" onclick="window.location.hash='#/user/${userId}'">← В профиль</button></div>`;
     }
 }
 
@@ -888,12 +1038,23 @@ async function loadUsers() {
     try {
         const users = await api.getUsers();
         if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Не найдено</td></tr>'; return; }
-        tbody.innerHTML = users.map(u => `<tr>
+        tbody.innerHTML = users.map(u => `<tr style="cursor:pointer;" data-user-id="${u.id}">
             <td><strong>${UI.escape(u.full_name)}</strong>${u.position ? `<div class="text-muted" style="font-size:12px;">${UI.escape(u.position)}</div>` : ''}</td>
             <td><span class="badge badge-role">${UI.roleName(u.role)}</span></td>
             <td>${UI.escape(u.phone || '—')}</td><td>${UI.escape(u.email || '—')}</td>
             <td>${u.is_active ? '<span class="badge badge-available">Активен</span>' : '<span class="badge badge-lost">Неактивен</span>'}</td>
             <td class="actions-cell">${isAdmin() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${u.id}">✏️</button><button class="btn btn-danger btn-sm" data-action="deactivate" data-id="${u.id}">🚫</button>` : '—'}</td></tr>`).join('');
+        
+        // Обработчик клика на строку пользователя
+        document.querySelectorAll('#users-table-body tr[data-user-id]').forEach(row => {
+            row.addEventListener('click', e => {
+                // Игнорируем клики по кнопкам действий
+                if (e.target.closest('[data-action]')) return;
+                const userId = row.dataset.userId;
+                window.location.hash = `#/user/${userId}`;
+            });
+        });
+        
         if (isAdmin()) {
             document.querySelectorAll('#users-table-body [data-action]').forEach(btn => {
                 btn.addEventListener('click', async () => {
@@ -946,25 +1107,60 @@ async function showUserForm(id = null) {
 function renderAvatarPreview(user) {
     const container = document.getElementById('avatar-preview');
     if (!container) return;
-    const src = (user.avatar && user.avatar.startsWith('/api/')) ? user.avatar : api.avatarUrl(user.id);
+
+    const src = (user.avatar && user.avatar.includes('/api/v1/avatars/'))
+        ? user.avatar
+        : api.avatarUrl(user.id);
+
     container.innerHTML = `<img src="${src}" alt="">`;
     const img = container.querySelector('img');
-    img.addEventListener('error', () => { const span = document.createElement('span'); span.className = 'avatar-preview-initials'; span.textContent = initials(user.full_name); img.replaceWith(span); });
+    img.addEventListener('error', () => {
+        const span = document.createElement('span');
+        span.className = 'avatar-preview-initials';
+        span.textContent = initials(user.full_name);
+        img.replaceWith(span);
+    });
 }
 
 window.uploadUserAvatarFromFile = async function(userId, input) {
     const file = input.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { UI.toast('Файл слишком большой (макс. 5 МБ)', 'error'); input.value = ''; return; }
+    if (file.size > 5 * 1024 * 1024) { 
+        UI.toast('Файл слишком большой (макс. 5 МБ)', 'error'); 
+        input.value = ''; 
+        return; 
+    }
     try {
         await api.uploadUserAvatar(userId, file);
         UI.toast('Аватар обновлён', 'success');
-        const u = await api.getUser(userId);
-        u.avatar = api.avatarUrl(userId) + '?v=' + Date.now();
-        renderAvatarPreview(u); renderHeaderUser();
+
+        const freshUrl = api.avatarUrl(userId) + '?v=' + Date.now();
+
+        const container = document.getElementById('avatar-preview');
+        if (container) {
+            container.innerHTML = `<img src="${freshUrl}" alt="">`;
+            const img = container.querySelector('img');
+            
+            img.addEventListener('error', async () => {
+                const span = document.createElement('span');
+                span.className = 'avatar-preview-initials';
+                try {
+                    const u = await api.getUser(userId);
+                    span.textContent = initials(u.full_name);
+                } catch {
+                    span.textContent = '??';
+                }
+                img.replaceWith(span);
+            });
+        }
+
+        renderHeaderUser();
         if (window.location.hash === '#/profile') renderProfilePage();
-    } catch (err) { UI.toast(err.message, 'error'); }
-    finally { input.value = ''; }
+    } catch (err) { 
+        UI.toast(err.message, 'error'); 
+    } finally { 
+        input.value = ''; 
+    }
 };
 
 window.deleteUserAvatarFromForm = async function(userId) {

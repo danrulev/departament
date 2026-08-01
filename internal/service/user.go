@@ -3,7 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
+	"io"
+	"mime/multipart"
+	"mitm-departament/internal/config"
 	"mitm-departament/internal/models"
+	"os"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -19,13 +24,15 @@ type UserRepo interface {
 }
 
 type UserService struct {
-	repo   UserRepo
+	repo UserRepo
+
 	hasher HasherI
+	cfg    config.PhotoConfig
 	log    *zap.Logger
 }
 
-func NewUserService(repo UserRepo, hasher HasherI, log *zap.Logger) *UserService {
-	return &UserService{repo: repo, hasher: hasher, log: log}
+func NewUserService(repo UserRepo, cfg config.PhotoConfig, hasher HasherI, log *zap.Logger) *UserService {
+	return &UserService{repo: repo, hasher: hasher, cfg: cfg, log: log}
 }
 
 // Create создаёт пользователя. UUID генерируется здесь.
@@ -109,6 +116,61 @@ func (s *UserService) Deactivate(ctx context.Context, id string) error {
 	return s.Update(ctx, u)
 }
 
-func (s *UserService) SetAvatar(ctx context.Context, userID, filename string) error {
-	return s.repo.SetAvatar(ctx, userID, filename)
+func (s *UserService) SetAvatar(ctx context.Context, userID string, file multipart.File, header *multipart.FileHeader, ext string) error {
+	user, err := s.repo.GetByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("get user: %w", err)
+	}
+	if user == nil {
+		return fmt.Errorf("user not found") // <-- Явная ошибка
+	}
+
+	// Удаляем старый файл
+	if user.Avatar != nil && *user.Avatar != "" {
+		_ = os.Remove(filepath.Join(s.cfg.AvatarPhotoDir, *user.Avatar))
+	}
+
+	storedName := "avatar_" + userID + ext
+	dst := filepath.Join(s.cfg.AvatarPhotoDir, storedName)
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, file)
+	closeErr := out.Close()
+
+	if err != nil {
+		os.Remove(dst)
+		s.log.Error("failed to copy file content", zap.Error(err))
+		return err
+	}
+	if closeErr != nil {
+		os.Remove(dst)
+		s.log.Error("failed to close file", zap.Error(closeErr))
+		return err
+	}
+
+	return s.repo.SetAvatar(ctx, userID, storedName)
+}
+
+func (s *UserService) DeleteAvatar(ctx context.Context, userID string) error {
+	user, err := s.repo.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	if user.Avatar == nil || *user.Avatar == "" {
+		return nil
+	}
+
+	if user.Avatar != nil && *user.Avatar != "" {
+		_ = os.Remove(filepath.Join(s.cfg.AvatarPhotoDir, *user.Avatar))
+	}
+	if err := s.repo.SetAvatar(ctx, userID, ""); err != nil {
+		return err
+	}
+
+	return nil
 }

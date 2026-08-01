@@ -85,11 +85,13 @@ func (r *UserRepo) ListActive(ctx context.Context) ([]models.User, error) {
 
 func (r *UserRepo) GetByName(ctx context.Context, name string) ([]models.User, error) {
 	var users []models.User
+	searchPattern := "%" + name + "%"
+
 	err := r.db.SelectContext(ctx, &users,
-		`SELECT id, full_name, role, phone, email, is_active, created_at
-		 FROM users WHERE name like %?% ORDER BY full_name`)
+		`SELECT id, avatar, full_name, role, position, phone, email, is_active, created_at
+		 FROM users WHERE full_name LIKE ? ORDER BY full_name`, searchPattern)
 	if err != nil {
-		return nil, fmt.Errorf("list users: %w", err)
+		return nil, fmt.Errorf("list users by name: %w", err)
 	}
 	return users, nil
 }
@@ -113,7 +115,15 @@ func (r *UserRepo) Update(ctx context.Context, u *models.User) error {
 }
 
 func (r *UserRepo) SetAvatar(ctx context.Context, userID, filename string) error {
-	_, err := r.db.ExecContext(ctx, `UPDATE users SET avatar = ? WHERE id = ?`, filename, userID)
+	// Если filename пустой, записываем NULL в базу, иначе само значение
+	var avatarValue interface{}
+	if filename == "" {
+		avatarValue = nil
+	} else {
+		avatarValue = filename
+	}
+
+	_, err := r.db.ExecContext(ctx, `UPDATE users SET avatar = ? WHERE id = ?`, avatarValue, userID)
 	if err != nil {
 		return fmt.Errorf("set avatar: %w", err)
 	}
