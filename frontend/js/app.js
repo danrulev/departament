@@ -1107,46 +1107,53 @@ async function showUserForm(id = null) {
 function renderAvatarPreview(user) {
     const container = document.getElementById('avatar-preview');
     if (!container) return;
-    
-    // ИСПРАВЛЕНО: используем API URL. 
-    // Если передан объект с уже модифицированным URL (с cache-buster), используем его.
-    const src = (user.avatar && user.avatar.includes('/users/avatars/')) 
-        ? user.avatar 
+
+    const src = (user.avatar && user.avatar.includes('/api/v1/avatars/'))
+        ? user.avatar
         : api.avatarUrl(user.id);
-        
+
     container.innerHTML = `<img src="${src}" alt="">`;
     const img = container.querySelector('img');
-    img.addEventListener('error', () => { 
-        const span = document.createElement('span'); 
-        span.className = 'avatar-preview-initials'; 
-        span.textContent = initials(user.full_name); 
-        img.replaceWith(span); 
+    img.addEventListener('error', () => {
+        const span = document.createElement('span');
+        span.className = 'avatar-preview-initials';
+        span.textContent = initials(user.full_name);
+        img.replaceWith(span);
     });
 }
 
 window.uploadUserAvatarFromFile = async function(userId, input) {
     const file = input.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { UI.toast('Файл слишком большой (макс. 5 МБ)', 'error'); input.value = ''; return; }
+    if (file.size > 5 * 1024 * 1024) { 
+        UI.toast('Файл слишком большой (макс. 5 МБ)', 'error'); 
+        input.value = ''; 
+        return; 
+    }
     try {
         await api.uploadUserAvatar(userId, file);
         UI.toast('Аватар обновлён', 'success');
-        
-        // Генерируем URL с принудительным сбросом кэша браузера
+
         const freshUrl = api.avatarUrl(userId) + '?v=' + Date.now();
-        
+
         const container = document.getElementById('avatar-preview');
         if (container) {
             container.innerHTML = `<img src="${freshUrl}" alt="">`;
             const img = container.querySelector('img');
-            img.addEventListener('error', () => { 
-                const span = document.createElement('span'); 
-                span.className = 'avatar-preview-initials'; 
-                span.textContent = initials((await api.getUser(userId)).full_name); 
-                img.replaceWith(span); 
+            
+            img.addEventListener('error', async () => {
+                const span = document.createElement('span');
+                span.className = 'avatar-preview-initials';
+                try {
+                    const u = await api.getUser(userId);
+                    span.textContent = initials(u.full_name);
+                } catch {
+                    span.textContent = '??';
+                }
+                img.replaceWith(span);
             });
         }
-        
+
         renderHeaderUser();
         if (window.location.hash === '#/profile') renderProfilePage();
     } catch (err) { 

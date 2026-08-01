@@ -21,12 +21,12 @@ var allowedTypes = map[string]string{
 	"image/gif":  ".gif",
 }
 
-type PhotoHandler struct {
-	svc PhotoService
+type EquipmentPhotoHandler struct {
+	svc EquipmentPhotoService
 	cfg config.PhotoConfig
 }
 
-type PhotoService interface {
+type EquipmentPhotoService interface {
 	Create(ctx context.Context, file multipart.File, ext string, photo *models.EquipmentPhoto) error
 	ListByEquipment(ctx context.Context, equipmentID int64) ([]models.EquipmentPhoto, error)
 	GetByID(ctx context.Context, id int64) (*models.EquipmentPhoto, error)
@@ -34,25 +34,25 @@ type PhotoService interface {
 	CountByEquipment(ctx context.Context, equipmentID int64) (int, error)
 }
 
-func NewPhotoHandler(svc PhotoService, cfg config.PhotoConfig) *PhotoHandler {
+func NewPhotoHandler(svc EquipmentPhotoService, cfg config.PhotoConfig) *EquipmentPhotoHandler {
 	// Создаём папку для фото при старте
 	_ = os.MkdirAll(cfg.EquipmentPhotoDir, 0755)
-	return &PhotoHandler{svc: svc, cfg: cfg}
+	return &EquipmentPhotoHandler{svc: svc, cfg: cfg}
 }
 
-func (h *PhotoHandler) RegisterRoutes(rg *gin.RouterGroup) {
+func (h *EquipmentPhotoHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/equipment/:id/photos", h.upload, requireRoles(adminKey))
 	rg.GET("/equipment/:id/photos", h.list)
 	rg.DELETE("/photos/:photo_id", h.delete, requireRoles(adminKey))
 }
 
 // Публичный маршрут — отдача файла (для <img src>)
-func (h *PhotoHandler) RegisterPublicRoutes(rg *gin.RouterGroup) {
+func (h *EquipmentPhotoHandler) RegisterPublicRoutes(rg *gin.RouterGroup) {
 	rg.GET("/photos/:photo_id", h.serve)
 }
 
 // POST /equipment/:id/photos  (multipart/form-data, поле "photo")
-func (h *PhotoHandler) upload(c *gin.Context) {
+func (h *EquipmentPhotoHandler) upload(c *gin.Context) {
 	equipID, ok := parseIDParam(c, "id")
 	if !ok {
 		return
@@ -103,7 +103,7 @@ func (h *PhotoHandler) upload(c *gin.Context) {
 }
 
 // GET /equipment/:id/photos
-func (h *PhotoHandler) list(c *gin.Context) {
+func (h *EquipmentPhotoHandler) list(c *gin.Context) {
 	equipID, ok := parseIDParam(c, "id")
 	if !ok {
 		return
@@ -119,7 +119,7 @@ func (h *PhotoHandler) list(c *gin.Context) {
 }
 
 // GET /photos/:photo_id — отдаёт сам файл
-func (h *PhotoHandler) serve(c *gin.Context) {
+func (h *EquipmentPhotoHandler) serve(c *gin.Context) {
 	id, ok := parseIDParam(c, "photo_id")
 	if !ok {
 		return
@@ -142,7 +142,7 @@ func (h *PhotoHandler) serve(c *gin.Context) {
 }
 
 // DELETE /photos/:photo_id
-func (h *PhotoHandler) delete(c *gin.Context) {
+func (h *EquipmentPhotoHandler) delete(c *gin.Context) {
 	id, ok := parseIDParam(c, "photo_id")
 	if !ok {
 		return

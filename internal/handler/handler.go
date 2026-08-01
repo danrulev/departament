@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"embed"
+	"mime/multipart"
 	"mitm-departament/internal/config"
 	"mitm-departament/internal/models"
 	"net/http"
@@ -17,7 +18,8 @@ type UserService interface {
 	Create(ctx context.Context, u *models.User) error
 	GetByID(ctx context.Context, id string) (*models.User, error)
 	ListActive(ctx context.Context) ([]models.User, error)
-	SetAvatar(ctx context.Context, userID, filename string) error
+	SetAvatar(ctx context.Context, userID string, file multipart.File, header *multipart.FileHeader, ext string) error
+	DeleteAvatar(ctx context.Context, userID string) error
 	Update(ctx context.Context, u *models.User) error
 	Deactivate(ctx context.Context, id string) error
 }
@@ -45,14 +47,14 @@ type Handler struct {
 	profile   *ProfileHandler
 	key       *KeyHandler
 	equipment *EquipmentHandler
-	photo     *PhotoHandler
+	photo     *EquipmentPhotoHandler
 	log       *zap.Logger
 
 	frontendFS      embed.FS
 	frontendFSReady bool
 }
 
-func New(authSvc AuthService, articleSvc ArticleService, userSvc UserService, keySvc KeyService, equipmentSvc EquipmentService, photoSvc PhotoService, cfg *config.Config, log *zap.Logger) *Handler {
+func New(authSvc AuthService, articleSvc ArticleService, userSvc UserService, keySvc KeyService, equipmentSvc EquipmentService, photoSvc EquipmentPhotoService, cfg *config.Config, log *zap.Logger) *Handler {
 	return &Handler{
 		auth:      NewAuthHandler(authSvc, cfg.Auth, log),
 		article:   NewArticleHandler(articleSvc),
