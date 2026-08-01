@@ -785,7 +785,7 @@ async function renderUserProfilePage(userId) {
         const user = await api.getUser(userId);
         const avatarSrc = api.avatarUrl(user.id);
         view.innerHTML = `<div class="pf-container">
-            <div class="ep-topbar"><button class="ep-back" onclick="window.history.back()">← Назад</button>${isAdmin() ? `<button class="btn btn-primary" onclick="window.showUserForm('${user.id}')">✏️ Редактировать</button>` : ''}</div>
+            <div class="ep-topbar"><button class="ep-back" onclick="window.location.hash='#/users'">← Назад</button>${isAdmin() ? `<button class="btn btn-primary" onclick="window.showUserForm('${user.id}')">✏️ Редактировать</button>` : ''}</div>
             <div class="pf-header">
                 <div class="pf-avatar"><img id="pf-avatar-img" src="${avatarSrc}" alt="${UI.escape(user.full_name)}"></div>
                 <div class="pf-identity">
