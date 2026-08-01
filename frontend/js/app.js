@@ -238,6 +238,14 @@ function handleRoute() {
         setActiveSidebarItem('profile');
         return;
     }
+    if (window.location.hash === '#/users' || window.location.hash === '') {
+        if (!currentUser) { showLogin(); return; }
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById('page-users').classList.add('active');
+        setActiveSidebarItem('users');
+        loadUsers();
+        return;
+    }
     showMainApp();
 }
 
@@ -732,7 +740,7 @@ async function renderProfilePage() {
         const me = await api.getMe();
         const avatarSrc = api.avatarUrl(me.id);
         view.innerHTML = `<div class="pf-container">
-            <div class="ep-topbar"><button class="ep-back" onclick="window.location.hash=''">← Назад</button>${isAdmin() ? `<button class="btn btn-primary" onclick="showUserForm('${me.id}')">✏️ Редактировать</button>` : ''}</div>
+            <div class="ep-topbar"><button class="ep-back" onclick="window.location.hash=''">← Назад</button>${isAdmin() ? `<button class="btn btn-primary" onclick="window.showUserForm('${me.id}')">✏️ Редактировать</button>` : ''}</div>
             <div class="pf-header">
                 <div class="pf-avatar"><img id="pf-avatar-img" src="${avatarSrc}" alt="${UI.escape(me.full_name)}"></div>
                 <div class="pf-identity">
@@ -777,7 +785,7 @@ async function renderUserProfilePage(userId) {
         const user = await api.getUser(userId);
         const avatarSrc = api.avatarUrl(user.id);
         view.innerHTML = `<div class="pf-container">
-            <div class="ep-topbar"><button class="ep-back" onclick="window.location.hash='#/users'">← Назад</button>${isAdmin() ? `<button class="btn btn-primary" onclick="showUserForm('${user.id}')">✏️ Редактировать</button>` : ''}</div>
+            <div class="ep-topbar"><button class="ep-back" onclick="window.history.back()">← Назад</button>${isAdmin() ? `<button class="btn btn-primary" onclick="window.showUserForm('${user.id}')">✏️ Редактировать</button>` : ''}</div>
             <div class="pf-header">
                 <div class="pf-avatar"><img id="pf-avatar-img" src="${avatarSrc}" alt="${UI.escape(user.full_name)}"></div>
                 <div class="pf-identity">
@@ -807,7 +815,7 @@ async function renderUserProfilePage(userId) {
         const img = document.getElementById('pf-avatar-img');
         img.addEventListener('error', () => { const span = document.createElement('span'); span.className = 'pf-initials'; span.textContent = initials(user.full_name); img.replaceWith(span); });
     } catch (err) {
-        view.innerHTML = `<div class="ep-error"><div class="ep-error-icon">⚠️</div><h2>Не удалось загрузить профиль</h2><p>${UI.escape(err.message)}</p><button class="btn btn-secondary" onclick="window.location.hash='#/users'">← Вернуться</button></div>`;
+        view.innerHTML = `<div class="ep-error"><div class="ep-error-icon">⚠️</div><h2>Не удалось загрузить профиль</h2><p>${UI.escape(err.message)}</p><button class="btn btn-secondary" onclick="window.history.back()">← Вернуться</button></div>`;
     }
 }
 
@@ -1030,7 +1038,7 @@ async function showKeyHistory(keyId) {
 // ============================================================
 // ==================== ПОЛЬЗОВАТЕЛИ ==========================
 // ============================================================
-function initUsersPage() { document.getElementById('btn-add-user').addEventListener('click', () => showUserForm()); }
+function initUsersPage() { document.getElementById('btn-add-user').addEventListener('click', () => window.showUserForm()); }
 
 async function loadUsers() {
     const tbody = document.getElementById('users-table-body');
@@ -1059,7 +1067,7 @@ async function loadUsers() {
             document.querySelectorAll('#users-table-body [data-action]').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const id = btn.dataset.id;
-                    if (btn.dataset.action === 'edit') await showUserForm(id);
+                    if (btn.dataset.action === 'edit') await window.showUserForm(id);
                     if (btn.dataset.action === 'deactivate' && UI.confirm('Деактивировать?')) {
                         try { await api.deactivateUser(id); UI.toast('Деактивирован', 'success'); loadUsers(); }
                         catch (e) { UI.toast(e.message, 'error'); }
@@ -1070,7 +1078,7 @@ async function loadUsers() {
     } catch (err) { tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${UI.escape(err.message)}</td></tr>`; }
 }
 
-async function showUserForm(id = null) {
+window.showUserForm = async function(id = null) {
     let user = { full_name: '', role: 'student', position: '', phone: '', email: '' };
     if (id) { try { user = await api.getUser(id); } catch (e) { UI.toast(e.message, 'error'); return; } }
     const avatarBlock = id ? `<div class="form-group"><label>Аватар</label><div class="avatar-editor"><div class="avatar-preview" id="avatar-preview"></div><div class="avatar-controls">
