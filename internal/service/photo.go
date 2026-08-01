@@ -57,6 +57,8 @@ func (p *PhotoService) Create(ctx context.Context, file multipart.File, ext stri
 		return err
 	}
 
+	photo.StoredName = storedName
+
 	err = p.repo.Create(ctx, photo)
 	if err != nil {
 		os.Remove(dst) // откатываем файл
