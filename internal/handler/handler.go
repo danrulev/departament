@@ -46,22 +46,22 @@ type Handler struct {
 	user      *UserHandler
 	profile   *ProfileHandler
 	key       *KeyHandler
-	equipment *EquipmentHandler
-	photo     *EquipmentPhotoHandler
+	inventory *InventoryHandler
+	photo     *InventoryPhotoHandler
 	log       *zap.Logger
 
 	frontendFS      embed.FS
 	frontendFSReady bool
 }
 
-func New(authSvc AuthService, articleSvc ArticleService, userSvc UserService, keySvc KeyService, equipmentSvc EquipmentService, photoSvc EquipmentPhotoService, cfg *config.Config, log *zap.Logger) *Handler {
+func New(authSvc AuthService, articleSvc ArticleService, userSvc UserService, keySvc KeyService, InventorySvc InventoryService, photoSvc InventoryPhotoService, cfg *config.Config, log *zap.Logger) *Handler {
 	return &Handler{
 		auth:      NewAuthHandler(authSvc, cfg.Auth, log),
 		article:   NewArticleHandler(articleSvc),
 		user:      NewUserHandler(userSvc, keySvc, cfg.Photo),
 		profile:   NewProfileHandler(userSvc, cfg.Photo),
 		key:       NewKeyHandler(keySvc),
-		equipment: NewEquipmentHandler(equipmentSvc),
+		inventory: NewInventoryHandler(InventorySvc),
 		photo:     NewPhotoHandler(photoSvc, cfg.Photo),
 		log:       log,
 	}
@@ -93,7 +93,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		h.auth.RegisterRoutes(public)
 		h.photo.RegisterPublicRoutes(public) // ← отдача фото без токена
 		h.profile.RegisterPublicRoutes(public)
-		h.equipment.RegisterPublicRoutes(public)
+		h.inventory.RegisterPublicRoutes(public)
 	}
 
 	// ── Защищённые API-роуты (С auth middleware) ──
@@ -102,7 +102,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		h.profile.RegisterRoutes(protected)
 		h.article.RegisterRoutes(protected)
 		h.key.RegisterRoutes(protected)
-		h.equipment.RegisterRoutes(protected)
+		h.inventory.RegisterRoutes(protected)
 		h.photo.RegisterRoutes(protected)
 		h.user.RegisterRoutes(protected)
 	}

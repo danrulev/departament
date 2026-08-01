@@ -16,11 +16,11 @@ import (
 )
 
 type PhotoRepo interface {
-	Create(ctx context.Context, p *models.EquipmentPhoto) error
-	ListByEquipment(ctx context.Context, equipmentID int64) ([]models.EquipmentPhoto, error)
-	GetByID(ctx context.Context, id int64) (*models.EquipmentPhoto, error)
+	Create(ctx context.Context, p *models.InventoryPhoto) error
+	ListByInventory(ctx context.Context, inventoryID int64) ([]models.InventoryPhoto, error)
+	GetByID(ctx context.Context, id int64) (*models.InventoryPhoto, error)
 	Delete(ctx context.Context, id int64) error
-	CountByEquipment(ctx context.Context, equipmentID int64) (int, error)
+	CountByInventory(ctx context.Context, inventoryID int64) (int, error)
 }
 
 type PhotoService struct {
@@ -34,8 +34,8 @@ func NewPhotoService(repo PhotoRepo, cfg config.PhotoConfig, log *zap.Logger) *P
 	return &PhotoService{repo: repo, cfg: cfg, log: log}
 }
 
-func (p *PhotoService) Create(ctx context.Context, file multipart.File, ext string, photo *models.EquipmentPhoto) error {
-	count, err := p.repo.CountByEquipment(ctx, photo.EquipmentID)
+func (p *PhotoService) Create(ctx context.Context, file multipart.File, ext string, photo *models.InventoryPhoto) error {
+	count, err := p.repo.CountByInventory(ctx, photo.InventoryID)
 	if err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func (p *PhotoService) Create(ctx context.Context, file multipart.File, ext stri
 	}
 
 	storedName := uuid.New().String() + ext
-	dst := filepath.Join(p.cfg.EquipmentPhotoDir, storedName)
+	dst := filepath.Join(p.cfg.InventoryPhotoDir, storedName)
 
 	out, err := os.Create(dst)
 	if err != nil {
@@ -68,11 +68,11 @@ func (p *PhotoService) Create(ctx context.Context, file multipart.File, ext stri
 	return nil
 }
 
-func (p *PhotoService) ListByEquipment(ctx context.Context, equipmentID int64) ([]models.EquipmentPhoto, error) {
-	return p.repo.ListByEquipment(ctx, equipmentID)
+func (p *PhotoService) ListByInventory(ctx context.Context, inventoryID int64) ([]models.InventoryPhoto, error) {
+	return p.repo.ListByInventory(ctx, inventoryID)
 }
 
-func (p *PhotoService) GetByID(ctx context.Context, id int64) (*models.EquipmentPhoto, error) {
+func (p *PhotoService) GetByID(ctx context.Context, id int64) (*models.InventoryPhoto, error) {
 	return p.repo.GetByID(ctx, id)
 }
 
@@ -85,7 +85,7 @@ func (p *PhotoService) Delete(ctx context.Context, id int64) error {
 		return fmt.Errorf("get photo by id: %w", err)
 	}
 
-	filePath := filepath.Join(p.cfg.EquipmentPhotoDir, photo.StoredName)
+	filePath := filepath.Join(p.cfg.InventoryPhotoDir, photo.StoredName)
 	_ = os.Remove(filePath)
 
 	if err := p.repo.Delete(ctx, id); err != nil {

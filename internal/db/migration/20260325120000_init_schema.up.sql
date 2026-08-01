@@ -47,8 +47,9 @@ CREATE INDEX IF NOT EXISTS idx_key_logs_key_id ON key_logs(key_id);
 CREATE INDEX IF NOT EXISTS idx_key_logs_user_id ON key_logs(user_id);
 
 
-CREATE TABLE IF NOT EXISTS equipment(
+CREATE TABLE IF NOT EXISTS inventory(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
     name TEXT NOT NULL NOT NULL, -- НАИМЕНОВАНИЕ
     description TEXT, -- КАК РАБОТАТЬ
     location TEXT NOT NULL, -- РАСПОЛОЖЕНИЕ
@@ -64,22 +65,22 @@ CREATE TABLE IF NOT EXISTS equipment(
     FOREIGN KEY (responsible_id) REFERENCES users(id)
 );
 
--- internal/db/migration/20260729100000_add_equipment_photos.up.sql
+-- internal/db/migration/20260729100000_add_inventory_photos.up.sql
 
-CREATE TABLE IF NOT EXISTS equipment_photos (
+CREATE TABLE IF NOT EXISTS inventory_photos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    equipment_id INTEGER NOT NULL,
+    inventory_id INTEGER NOT NULL,
     filename TEXT NOT NULL,          -- оригинальное имя файла
     stored_name TEXT NOT NULL,       -- имя на диске (UUID)
     content_type TEXT NOT NULL,      -- image/jpeg, image/png
     size_bytes INTEGER NOT NULL,
     uploaded_by TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (equipment_id) REFERENCES equipment(id) ON DELETE CASCADE,
+    FOREIGN KEY (inventory_id) REFERENCES inventory(id) ON DELETE CASCADE,
     FOREIGN KEY (uploaded_by) REFERENCES users(id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_photos_equipment ON equipment_photos(equipment_id);
+CREATE INDEX IF NOT EXISTS idx_photos_inventory ON inventory_photos(inventory_id);
 
 CREATE TABLE IF NOT EXISTS articles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

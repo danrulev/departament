@@ -135,10 +135,11 @@ type MessageResponse struct {
 	Message string `json:"message"`
 }
 
-// ========== Equipment ==========
+// ========== Inventory ==========
 
-type CreateEquipmentRequest struct {
+type CreateInventoryRequest struct {
 	Name                 string  `json:"name" binding:"required,min=1"`
+	Type                 string  `json:"type" binding:"required"`
 	Description          *string `json:"description"`
 	Location             *string `json:"location" binding:"required,min=1"`
 	Documentation        *string `json:"documentation"`
@@ -150,8 +151,9 @@ type CreateEquipmentRequest struct {
 	NextVerificationDate *string `json:"next_verification_date"`
 }
 
-type UpdateEquipmentRequest struct {
+type UpdateInventoryRequest struct {
 	Name                 string  `json:"name" binding:"required,min=1"`
+	Type                 string  `json:"type" binding:"required"`
 	Description          *string `json:"description"`
 	Location             *string `json:"location"`
 	Documentation        *string `json:"documentation"`
@@ -163,8 +165,9 @@ type UpdateEquipmentRequest struct {
 	NextVerificationDate *string `json:"next_verification_date"`
 }
 
-type EquipmentResponse struct {
+type InventoryResponse struct {
 	ID                   int64   `json:"id"`
+	Type                 string  `json:"type" binding:"required"`
 	Name                 string  `json:"name"`
 	Description          *string `json:"description,omitempty"`
 	Location             *string `json:"location,omitempty"`
@@ -179,9 +182,10 @@ type EquipmentResponse struct {
 	UpdatedAt            string  `json:"updated_at"`
 }
 
-func ToEquipmentResponse(e *models.Equipment) EquipmentResponse {
-	resp := EquipmentResponse{
+func ToInventoryResponse(e *models.Inventory) InventoryResponse {
+	resp := InventoryResponse{
 		ID:                e.ID,
+		Type:              e.Type,
 		Name:              e.Name,
 		Description:       e.Description,
 		Location:          e.Location,

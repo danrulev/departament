@@ -1,12 +1,12 @@
-// internal/models/equipment_photo.go
+// internal/models/inventory_photo.go
 
 package models
 
 import "time"
 
-type EquipmentPhoto struct {
+type InventoryPhoto struct {
 	ID          int64     `json:"id" db:"id"`
-	EquipmentID int64     `json:"equipment_id" db:"equipment_id"`
+	InventoryID int64     `json:"inventory_id" db:"inventory_id"`
 	Filename    string    `json:"filename" db:"filename"`
 	StoredName  string    `json:"-" db:"stored_name"` // не отдаём клиенту
 	ContentType string    `json:"content_type" db:"content_type"`

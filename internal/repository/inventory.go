@@ -12,28 +12,28 @@ import (
 	"go.uber.org/zap"
 )
 
-type EquipmentRepo struct {
+type InventoryRepo struct {
 	db  *sqlx.DB
 	log *zap.Logger
 }
 
-func NewEquipmentRepo(db *sqlx.DB, log *zap.Logger) *EquipmentRepo {
-	return &EquipmentRepo{db: db, log: log}
+func NewInventoryRepo(db *sqlx.DB, log *zap.Logger) *InventoryRepo {
+	return &InventoryRepo{db: db, log: log}
 }
 
-// equipmentColumns — список колонок для SELECT (без JOIN)
-const equipmentColumns = `id, name, description, location, documentation, inventory_number,
+// inventoryColumns — список колонок для SELECT (без JOIN)
+const inventoryColumns = `id, type, name, description, location, documentation, inventory_number,
 	responsible_id, status, unavailable_reason, last_verification_date, next_verification_date, created_at, updated_at`
 
 // Create создаёт единицу оборудования
-func (r *EquipmentRepo) Create(ctx context.Context, e *models.Equipment) error {
+func (r *InventoryRepo) Create(ctx context.Context, e *models.Inventory) error {
 	res, err := r.db.NamedExecContext(ctx,
-		`INSERT INTO equipment 
-			(name, description, location, documentation, inventory_number, responsible_id, status, unavailable_reason, last_verification_date, next_verification_date)
+		`INSERT INTO inventory 
+			(name, type, description, location, documentation, inventory_number, responsible_id, status, unavailable_reason, last_verification_date, next_verification_date)
 		 VALUES 
-			(:name, :description, :location, :documentation, :inventory_number, :responsible_id, :status, :unavailable_reason, :last_verification_date, :next_verification_date)`, e)
+			(:name, :type, :description, :location, :documentation, :inventory_number, :responsible_id, :status, :unavailable_reason, :last_verification_date, :next_verification_date)`, e)
 	if err != nil {
-		return fmt.Errorf("insert equipment: %w", err)
+		return fmt.Errorf("insert inventory: %w", err)
 	}
 	id, _ := res.LastInsertId()
 	e.ID = id
@@ -41,29 +41,29 @@ func (r *EquipmentRepo) Create(ctx context.Context, e *models.Equipment) error {
 }
 
 // GetByID возвращает оборудование по ID
-func (r *EquipmentRepo) GetByID(ctx context.Context, id int64) (*models.Equipment, error) {
-	e := &models.Equipment{}
+func (r *InventoryRepo) GetByID(ctx context.Context, id int64) (*models.Inventory, error) {
+	e := &models.Inventory{}
 	err := r.db.GetContext(ctx, e,
-		`SELECT `+equipmentColumns+` FROM equipment WHERE id = ?`, id)
+		`SELECT `+inventoryColumns+` FROM inventory WHERE id = ?`, id)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("get equipment: %w", err)
+		return nil, fmt.Errorf("get inventory: %w", err)
 	}
 	return e, nil
 }
 
 // GetByInventoryNumber возвращает оборудование по точному инвентарному номеру
-func (r *EquipmentRepo) GetByInventoryNumber(ctx context.Context, invNumber string) (*models.Equipment, error) {
-	e := &models.Equipment{}
+func (r *InventoryRepo) GetByInventoryNumber(ctx context.Context, invNumber string) (*models.Inventory, error) {
+	e := &models.Inventory{}
 	err := r.db.GetContext(ctx, e,
-		`SELECT `+equipmentColumns+` FROM equipment WHERE inventory_number = ?`, invNumber)
+		`SELECT `+inventoryColumns+` FROM inventory WHERE inventory_number = ?`, invNumber)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("get equipment by inventory number: %w", err)
+		return nil, fmt.Errorf("get inventory by inventory number: %w", err)
 	}
 	return e, nil
 }
@@ -73,19 +73,24 @@ func (r *EquipmentRepo) GetByInventoryNumber(ctx context.Context, invNumber stri
 //   - InventoryNumber: поиск по инвентарному номеру (LIKE inventory%)
 //   - Status:          фильтр по статусу (nil = без фильтра)
 //   - Limit / Offset:  пагинация
-func (r *EquipmentRepo) List(ctx context.Context, f models.EquipmentFilter) ([]models.Equipment, int64, error) {
+func (r *InventoryRepo) List(ctx context.Context, f models.InventoryFilter) ([]models.Inventory, int64, error) {
 	// Динамически собираем условия WHERE
 	var conditions []string
 	var args []interface{}
 
-	if f.Search != "" {
-		conditions = append(conditions, "name LIKE ?")
-		args = append(args, "%"+f.Search+"%") // содержит
+	if f.Type != nil {
+		conditions = append(conditions, "type = ?")
+		args = append(args, *f.Type)
 	}
 
-	if f.InventoryNumber != "" {
+	if f.Search != nil {
+		conditions = append(conditions, "name LIKE ?")
+		args = append(args, "%"+*f.Search+"%") // содержит
+	}
+
+	if f.InventoryNumber != nil {
 		conditions = append(conditions, "inventory_number LIKE ?")
-		args = append(args, f.InventoryNumber+"%") // начинается с
+		args = append(args, "%"+*f.InventoryNumber+"%") // содержит
 	}
 
 	if f.Status != nil {
@@ -100,9 +105,9 @@ func (r *EquipmentRepo) List(ctx context.Context, f models.EquipmentFilter) ([]m
 
 	// 1. Общее количество записей под фильтр
 	var total int64
-	countQuery := `SELECT COUNT(*) FROM equipment` + whereClause
+	countQuery := `SELECT COUNT(*) FROM inventory` + whereClause
 	if err := r.db.GetContext(ctx, &total, countQuery, args...); err != nil {
-		return nil, 0, fmt.Errorf("count equipment: %w", err)
+		return nil, 0, fmt.Errorf("count inventory: %w", err)
 	}
 
 	if total == 0 {
@@ -114,30 +119,30 @@ func (r *EquipmentRepo) List(ctx context.Context, f models.EquipmentFilter) ([]m
 	listArgs = append(listArgs, args...)
 	listArgs = append(listArgs, f.Paginated.Limit, f.Paginated.Offset)
 
-	var items []models.Equipment
-	listQuery := `SELECT ` + equipmentColumns + ` FROM equipment` + whereClause + ` ORDER BY id LIMIT ? OFFSET ?`
+	var items []models.Inventory
+	listQuery := `SELECT ` + inventoryColumns + ` FROM inventory` + whereClause + ` ORDER BY id LIMIT ? OFFSET ?`
 	if err := r.db.SelectContext(ctx, &items, listQuery, listArgs...); err != nil {
-		return nil, 0, fmt.Errorf("list equipment: %w", err)
+		return nil, 0, fmt.Errorf("list inventory: %w", err)
 	}
 
 	return items, total, nil
 }
 
 // ListExpiredVerification возвращает оборудование с просроченной поверкой
-func (r *EquipmentRepo) ListExpiredVerification(ctx context.Context, limit, offset int64) ([]models.Equipment, int64, error) {
+func (r *InventoryRepo) ListExpiredVerification(ctx context.Context, limit, offset int64) ([]models.Inventory, int64, error) {
 	var total int64
-	countQuery := `SELECT COUNT(*) FROM equipment WHERE next_verification_date IS NOT NULL AND next_verification_date < DATE('now')`
+	countQuery := `SELECT COUNT(*) FROM inventory WHERE next_verification_date IS NOT NULL AND next_verification_date < DATE('now')`
 	if err := r.db.GetContext(ctx, &total, countQuery); err != nil {
-		return nil, 0, fmt.Errorf("count equipment: %w", err)
+		return nil, 0, fmt.Errorf("count inventory: %w", err)
 	}
 
 	if total == 0 {
 		return nil, 0, nil
 	}
 
-	var items []models.Equipment
+	var items []models.Inventory
 	err := r.db.SelectContext(ctx, &items,
-		`SELECT `+equipmentColumns+` FROM equipment 
+		`SELECT `+inventoryColumns+` FROM inventory 
 		 WHERE next_verification_date IS NOT NULL AND next_verification_date < DATE('now')
 		 ORDER BY next_verification_date`)
 	if err != nil {
@@ -147,10 +152,11 @@ func (r *EquipmentRepo) ListExpiredVerification(ctx context.Context, limit, offs
 }
 
 // Update обновляет данные оборудования
-func (r *EquipmentRepo) Update(ctx context.Context, e *models.Equipment) error {
+func (r *InventoryRepo) Update(ctx context.Context, e *models.Inventory) error {
 	res, err := r.db.NamedExecContext(ctx,
-		`UPDATE equipment SET 
+		`UPDATE inventory SET 
 			name = :name,
+			type = :type,
 			description = :description,
 			location = :location,
 			documentation = :documentation,
@@ -163,24 +169,24 @@ func (r *EquipmentRepo) Update(ctx context.Context, e *models.Equipment) error {
 			updated_at = CURRENT_TIMESTAMP
 		 WHERE id = :id`, e)
 	if err != nil {
-		return fmt.Errorf("update equipment: %w", err)
+		return fmt.Errorf("update inventory: %w", err)
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return errors.New("equipment not found")
+		return errors.New("inventory not found")
 	}
 	return nil
 }
 
 // Delete удаляет оборудование
-func (r *EquipmentRepo) Delete(ctx context.Context, id int64) error {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM equipment WHERE id = ?`, id)
+func (r *InventoryRepo) Delete(ctx context.Context, id int64) error {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM inventory WHERE id = ?`, id)
 	if err != nil {
-		return fmt.Errorf("delete equipment: %w", err)
+		return fmt.Errorf("delete inventory: %w", err)
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return errors.New("equipment not found")
+		return errors.New("inventory not found")
 	}
 	return nil
 }

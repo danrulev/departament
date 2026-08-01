@@ -2,8 +2,9 @@ package models
 
 import "time"
 
-type Equipment struct {
+type Inventory struct {
 	ID                   int64      `json:"id" db:"id"`
+	Type                 string     `json:"type" db:"type"`
 	Name                 string     `json:"name" db:"name"`
 	Description          *string    `json:"description,omitempty" db:"description"`
 	Location             *string    `json:"location,omitempty" db:"location"`
@@ -18,15 +19,16 @@ type Equipment struct {
 	UpdatedAt            time.Time  `json:"updated_at" db:"updated_at"`
 }
 
-// EquipmentFilter — параметры фильтрации и пагинации для списка оборудования
-type EquipmentFilter struct {
-	Search          string `form:"search"`    // ✅ ?search=
-	InventoryNumber string `form:"inventory"` // ✅ ?inventory=
-	Status          *bool  `form:"-"`         // ✅ игнорируем (парсится вручную)
+// InventoryFilter — параметры фильтрации и пагинации для списка оборудования
+type InventoryFilter struct {
+	Type            *string `json:"type" db:"type"`
+	Search          *string `form:"search"`    // ✅ ?search=
+	InventoryNumber *string `form:"inventory"` // ✅ ?inventory=
+	Status          *bool   `form:"-"`         // ✅ игнорируем (парсится вручную)
 	Paginated       Paginated
 }
 
-type ListEquipment struct {
+type ListInventory struct {
 	PaginatedMetadata PaginatedMetadata `json:"paginated_metadata"`
-	Equipment         []Equipment       `json:"equipment"`
+	Inventory         []Inventory       `json:"inventory"`
 }

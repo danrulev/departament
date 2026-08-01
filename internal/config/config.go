@@ -33,7 +33,7 @@ type DBConfig struct {
 }
 
 type PhotoConfig struct {
-	EquipmentPhotoDir string `mapstructure:"equipment_photo_dir" validate:"required"`
+	InventoryPhotoDir string `mapstructure:"inventory_photo_dir" validate:"required"`
 	AvatarPhotoDir    string `mapstructure:"avatar_photo_dir" validate:"required"`
 	MaxPhotoSize      int    `mapstructure:"max_photo_size" validate:"required"`
 	MaxPhotos         int    `mapstructure:"max_photos" validate:"required"`

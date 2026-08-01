@@ -9,39 +9,39 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// EquipmentService — интерфейс сервиса оборудования
-type EquipmentService interface {
-	Create(ctx context.Context, e *models.Equipment) error
-	GetByID(ctx context.Context, id int64) (*models.Equipment, error)
-	List(ctx context.Context, f models.EquipmentFilter) (models.ListEquipment, error)
-	ListExpiredVerification(ctx context.Context, limit, offset int64) (models.ListEquipment, error)
-	Update(ctx context.Context, e *models.Equipment) error
+// InventoryService — интерфейс сервиса оборудования
+type InventoryService interface {
+	Create(ctx context.Context, e *models.Inventory) error
+	GetByID(ctx context.Context, id int64) (*models.Inventory, error)
+	List(ctx context.Context, f models.InventoryFilter) (models.ListInventory, error)
+	ListExpiredVerification(ctx context.Context, limit, offset int64) (models.ListInventory, error)
+	Update(ctx context.Context, e *models.Inventory) error
 	Delete(ctx context.Context, id int64) error
 }
 
-type EquipmentHandler struct {
-	svc EquipmentService
+type InventoryHandler struct {
+	svc InventoryService
 }
 
-func NewEquipmentHandler(svc EquipmentService) *EquipmentHandler {
-	return &EquipmentHandler{svc: svc}
+func NewInventoryHandler(svc InventoryService) *InventoryHandler {
+	return &InventoryHandler{svc: svc}
 }
 
-func (h *EquipmentHandler) RegisterRoutes(rg *gin.RouterGroup) {
-	equipment := rg.Group("/equipment")
+func (h *InventoryHandler) RegisterRoutes(rg *gin.RouterGroup) {
+	Inventory := rg.Group("/Inventory")
 	{
-		equipment.POST("", h.create, requireRoles(adminKey))
-		equipment.GET("", h.list)
-		equipment.GET("/expired-verification", h.listExpiredVerification)
-		equipment.PUT("/:id", h.update, requireRoles(adminKey))
-		equipment.DELETE("/:id", h.delete, requireRoles(adminKey))
+		Inventory.POST("", h.create, requireRoles(adminKey))
+		Inventory.GET("", h.list)
+		Inventory.GET("/expired-verification", h.listExpiredVerification)
+		Inventory.PUT("/:id", h.update, requireRoles(adminKey))
+		Inventory.DELETE("/:id", h.delete, requireRoles(adminKey))
 	}
 }
 
-func (h *EquipmentHandler) RegisterPublicRoutes(rg *gin.RouterGroup) {
-	equipment := rg.Group("/equipment")
+func (h *InventoryHandler) RegisterPublicRoutes(rg *gin.RouterGroup) {
+	Inventory := rg.Group("/Inventory")
 	{
-		equipment.GET("/:id", h.getByID)
+		Inventory.GET("/:id", h.getByID)
 	}
 }
 
@@ -57,8 +57,8 @@ func parseDate(s *string) (*time.Time, error) {
 	return &t, nil
 }
 
-func (h *EquipmentHandler) create(c *gin.Context) {
-	var req CreateEquipmentRequest
+func (h *InventoryHandler) create(c *gin.Context) {
+	var req CreateInventoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		handleValidationError(c, err)
 		return
@@ -81,7 +81,7 @@ func (h *EquipmentHandler) create(c *gin.Context) {
 		status = *req.Status
 	}
 
-	equipment := &models.Equipment{
+	Inventory := &models.Inventory{
 		Name:                 req.Name,
 		Description:          req.Description,
 		Location:             req.Location,
@@ -93,40 +93,40 @@ func (h *EquipmentHandler) create(c *gin.Context) {
 		NextVerificationDate: next_verificationDate,
 	}
 
-	equipment.Status = status
+	Inventory.Status = status
 	if status {
 		reason := "Причина не указана"
-		equipment.UnavailableReason = &reason // доступен → причины нет
+		Inventory.UnavailableReason = &reason // доступен → причины нет
 	} else {
-		equipment.UnavailableReason = req.UnavailableReason
+		Inventory.UnavailableReason = req.UnavailableReason
 	}
 
-	if err := h.svc.Create(c.Request.Context(), equipment); err != nil {
+	if err := h.svc.Create(c.Request.Context(), Inventory); err != nil {
 		handleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, ToEquipmentResponse(equipment))
+	c.JSON(http.StatusCreated, ToInventoryResponse(Inventory))
 }
 
-func (h *EquipmentHandler) getByID(c *gin.Context) {
+func (h *InventoryHandler) getByID(c *gin.Context) {
 	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
 
-	equipment, err := h.svc.GetByID(c.Request.Context(), id)
+	Inventory, err := h.svc.GetByID(c.Request.Context(), id)
 	if err != nil {
 		handleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, ToEquipmentResponse(equipment))
+	c.JSON(http.StatusOK, ToInventoryResponse(Inventory))
 }
 
-func (h *EquipmentHandler) list(c *gin.Context) {
+func (h *InventoryHandler) list(c *gin.Context) {
 	// Биндим query-параметры: limit, offset, search, inventory
-	var filter models.EquipmentFilter
+	var filter models.InventoryFilter
 	if err := c.ShouldBindQuery(&filter); err != nil {
 		handleValidationError(c, err)
 		return
@@ -153,7 +153,7 @@ func (h *EquipmentHandler) list(c *gin.Context) {
 	c.JSON(http.StatusOK, data)
 }
 
-func (h *EquipmentHandler) listExpiredVerification(c *gin.Context) {
+func (h *InventoryHandler) listExpiredVerification(c *gin.Context) {
 	var p models.Paginated
 	if err := c.ShouldBindQuery(&p); err != nil {
 		handleValidationError(c, err)
@@ -171,19 +171,19 @@ func (h *EquipmentHandler) listExpiredVerification(c *gin.Context) {
 	c.JSON(http.StatusOK, items)
 }
 
-func (h *EquipmentHandler) update(c *gin.Context) {
+func (h *InventoryHandler) update(c *gin.Context) {
 	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
 
-	var req UpdateEquipmentRequest
+	var req UpdateInventoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		handleValidationError(c, err)
 		return
 	}
 
-	equipment, err := h.svc.GetByID(c.Request.Context(), id)
+	Inventory, err := h.svc.GetByID(c.Request.Context(), id)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -202,30 +202,30 @@ func (h *EquipmentHandler) update(c *gin.Context) {
 	}
 
 	if req.UnavailableReason != nil && *req.UnavailableReason != "" {
-		equipment.UnavailableReason = req.UnavailableReason
+		Inventory.UnavailableReason = req.UnavailableReason
 	}
 
-	equipment.Name = req.Name
-	equipment.Description = req.Description
-	equipment.Location = req.Location
-	equipment.Documentation = req.Documentation
-	equipment.InventoryNumber = req.InventoryNumber
-	equipment.ResponsibleID = req.ResponsibleID
-	equipment.LastVerificationDate = last_verificationDate
-	equipment.NextVerificationDate = next_verificationDate
+	Inventory.Name = req.Name
+	Inventory.Description = req.Description
+	Inventory.Location = req.Location
+	Inventory.Documentation = req.Documentation
+	Inventory.InventoryNumber = req.InventoryNumber
+	Inventory.ResponsibleID = req.ResponsibleID
+	Inventory.LastVerificationDate = last_verificationDate
+	Inventory.NextVerificationDate = next_verificationDate
 	if req.Status != nil {
-		equipment.Status = *req.Status
+		Inventory.Status = *req.Status
 	}
 
-	if err := h.svc.Update(c.Request.Context(), equipment); err != nil {
+	if err := h.svc.Update(c.Request.Context(), Inventory); err != nil {
 		handleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, ToEquipmentResponse(equipment))
+	c.JSON(http.StatusOK, ToInventoryResponse(Inventory))
 }
 
-func (h *EquipmentHandler) delete(c *gin.Context) {
+func (h *InventoryHandler) delete(c *gin.Context) {
 	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
