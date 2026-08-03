@@ -182,6 +182,7 @@ class ApiClient {
     getPhotos(inventoryId) { return this.request(`/inventory/${inventoryId}/photos`); }
     deletePhoto(photoId)   { return this.request(`/photos/${photoId}`, { method: 'DELETE' }); }
     photoUrl(photoId)      { return `${this.baseURL}/photos/${photoId}`; }
+    qrCodeUrl(inventoryId) { return `${this.baseURL}/inventory/${inventoryId}/qr`; }
 
     async uploadPhoto(inventoryId, file, _isRetry = false) {
         const formData = new FormData();
