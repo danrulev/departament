@@ -415,12 +415,13 @@ async function loadInventory() {
             return;
         }
 
-        const rows = await Promise.all(items.map(async inv => {
+        const rows = await Promise.all(items.map(async (inv, idx) => {
             let resp = '—';
             if (inv.responsible_id) {
                 try { const u = await api.getUser(inv.responsible_id); if (u) resp = u.full_name; } catch {}
             }
-            return renderInvRow(inv, resp);
+            const rowNum = invState.offset + idx + 1;
+            return renderInvRow(inv, resp, rowNum);
         }));
 
         tbody.innerHTML = rows.join('');
@@ -431,7 +432,7 @@ async function loadInventory() {
     }
 }
 
-function renderInvRow(inv, resp) {
+function renderInvRow(inv, resp, rowNum) {
     let verif = '<span class="text-muted">—</span>';
     if (inv.next_verification_date) {
         const expired = new Date(inv.next_verification_date) < new Date();
@@ -448,7 +449,7 @@ function renderInvRow(inv, resp) {
         <button class="btn btn-danger btn-sm" data-action="delete" data-id="${inv.id}">🗑️</button>` : '';
 
     return `<tr class="${inv.status ? '' : 'row-unavailable'}">
-        <td>${inv.id}</td><td><strong>${UI.escape(inv.name)}</strong></td>
+        <td>${rowNum}</td><td><strong>${UI.escape(inv.name)}</strong></td>
         <td>${formatType(inv.type)}</td><td>${UI.escape(inv.inventory_number || '—')}</td><td>${UI.escape(inv.location || '—')}</td>
         <td>${UI.escape(resp)}</td><td>${verif}</td><td>${badge}</td>
         <td class="actions-cell"><button class="btn btn-secondary btn-sm" data-action="view" data-id="${inv.id}">👁️</button>${adminBtns}</td>
