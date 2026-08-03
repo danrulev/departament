@@ -335,12 +335,13 @@ async function loadArticles() {
             return;
         }
 
-        const rows = items.map(a => {
+        const rows = items.map((a, idx) => {
             const authors = (a.authors || []).map(x => x.name).join(', ');
             const badgeClass = a.status === 'published' ? 'badge-available' : a.status === 'submitted' ? 'badge-lost' : 'badge-available';
             const badgeText = articleStatusName(a.status);
+            const rowNum = artState.offset + idx + 1;
             return `<tr>
-                <td>${a.id}</td>
+                <td>${rowNum}</td>
                 <td><strong>${UI.escape(a.title)}</strong><br><small class="text-muted">${UI.escape(authors)}</small></td>
                 <td>${UI.escape(a.indexing || '—')}</td>
                 <td>${UI.escape(a.white_list_level || '—')}</td>
@@ -1019,6 +1020,8 @@ async function renderUserArticlesPage(userId) {
 // ============================================================
 // ======================= КЛЮЧИ ==============================
 // ============================================================
+const keyState = { offset: 0 };
+
 function initKeysPage() {
     document.getElementById('btn-add-key').addEventListener('click', () => showKeyForm());
     document.getElementById('key-status-filter').addEventListener('change', e => loadKeys(e.target.value));
@@ -1030,7 +1033,7 @@ async function loadKeys(status = '') {
     try {
         const keys = await api.getKeys(status);
         if (!keys.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Не найдено</td></tr>'; return; }
-        const rows = await Promise.all(keys.map(async key => {
+        const rows = await Promise.all(keys.map(async (key, idx) => {
             let holder = '—';
             if (key.status === 'issued') {
                 try { const h = await api.getKeyHolder(key.id); if (h && h.user_id) { const u = await api.getUser(h.user_id); holder = u ? u.full_name : h.user_id.slice(0, 8); } } catch {}
@@ -1041,7 +1044,7 @@ async function loadKeys(status = '') {
                 <button class="btn btn-secondary btn-sm" data-action="edit" data-id="${key.id}">✏️</button>` : `
                 ${key.status === 'available' ? `<button class="btn btn-success btn-sm" data-action="issue" data-id="${key.id}">Выдать</button>` : ''}
                 ${key.status === 'issued' ? `<button class="btn btn-warning btn-sm" data-action="return" data-id="${key.id}">Вернуть</button>` : ''}`;
-            return `<tr><td>${key.id}</td><td><strong>${UI.escape(key.key_number)}</strong></td><td>${UI.escape(key.room_description)}</td>
+            return `<tr><td>${keyState.offset + idx + 1}</td><td><strong>${UI.escape(key.key_number)}</strong></td><td>${UI.escape(key.room_description)}</td>
                 <td><span class="badge badge-${key.status}">${UI.statusName(key.status)}</span></td><td>${UI.escape(holder)}</td>
                 <td class="actions-cell">${adminBtns}<button class="btn btn-secondary btn-sm" data-action="history" data-id="${key.id}">📋</button></td></tr>`;
         }));
@@ -1121,7 +1124,8 @@ async function loadUsers() {
     try {
         const users = await api.getUsers();
         if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Не найдено</td></tr>'; return; }
-        tbody.innerHTML = users.map(u => `<tr style="cursor:pointer;" data-user-id="${u.id}">
+        tbody.innerHTML = users.map((u, idx) => `<tr style="cursor:pointer;" data-user-id="${u.id}">
+            <td>${idx + 1}</td>
             <td><strong>${UI.escape(u.full_name)}</strong>${u.position ? `<div class="text-muted" style="font-size:12px;">${UI.escape(u.position)}</div>` : ''}</td>
             <td><span class="badge badge-role">${UI.roleName(u.role)}</span></td>
             <td>${UI.escape(u.phone || '—')}</td><td>${UI.escape(u.email || '—')}</td>

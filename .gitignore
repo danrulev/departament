@@ -1,31 +1,21 @@
-```
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
+```gitignore
+# Dependencies
+node_modules/
+
+# Build artifacts
 dist/
 build/
-target/
-
-# Dependencies
-.venv/
-venv/
-node_modules/
-.julia/
-zig-cache/
-.deps/
+*.min.js
+*.bundle.js
 
 # Logs and temp files
 *.log
 *.tmp
-*.swp
-*.swo
 
 # Environment
 .env
 .env.local
-.env.*
+*.env.*
 
 # Editors
 .vscode/
@@ -33,18 +23,19 @@ zig-cache/
 *.swp
 *.swo
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Testing and coverage
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
 .coverage
-coverage/
 htmlcov/
-.pytest_cache/
-.mypy_cache/
+.coverage.*
+.python-version
 
-# Archives
+# Compressed files
 *.zip
 *.gz
 *.tar
