@@ -1,43 +1,5 @@
 ```
-# Dependencies
-go.sum
-vendor/
-
-# Compiled and build artifacts
-*.o
-*.obj
-*.a
-*.so
-*.dylib
-*.dll
-*.exe
-*.out
-
-# Go specific
-*.test
-*.prof
-cover.out
-coverage.html
-
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-*.swo
-
-# Environment
-.env
-.env.local
-*.env.*
-
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Build and distribution
-dist/
-build/
-target/
+# Go-specific ignores
+*.mod
+*.sum
 ```
