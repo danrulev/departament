@@ -96,6 +96,17 @@
                         <div class="actions">
                             <input type="text" id="eq-search" class="input" placeholder="Поиск..." style="width:180px;">
                             <input type="text" id="eq-inventory" class="input" placeholder="Инв. номер" style="width:130px;">
+                            <select id="eq-type-filter" class="input" style="width:140px;">
+                                <option value="">Все типы</option>
+                                <option value="Компьютер">Компьютер</option>
+                                <option value="Принтер">Принтер</option>
+                                <option value="Монитор">Монитор</option>
+                                <option value="Проектор">Проектор</option>
+                                <option value="Сканер">Сканер</option>
+                                <option value="Ксерокс">Ксерокс</option>
+                                <option value="Телефон">Телефон</option>
+                                <option value="Другое">Другое</option>
+                            </select>
                             <select id="eq-status-filter" class="input" style="width:140px;">
                                 <option value="">Все статусы</option>
                                 <option value="available">Доступно</option>
@@ -111,12 +122,12 @@
                         <table class="table">
                             <thead>
                                 <tr>
-                                    <th>ID</th><th>Название</th><th>Инв. №</th><th>Локация</th>
+                                    <th>ID</th><th>Название</th><th>Тип</th><th>Инв. №</th><th>Локация</th>
                                     <th>Ответственный</th><th>След. поверка</th><th>Статус</th><th>Действия</th>
                                 </tr>
                             </thead>
                             <tbody id="equipment-table-body">
-                                <tr><td colspan="8" class="loading">Загрузка...</td></tr>
+                                <tr><td colspan="9" class="loading">Загрузка...</td></tr>
                             </tbody>
                         </table>
                     </div>

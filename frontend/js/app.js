@@ -201,7 +201,7 @@ function handleRoute() {
     const eqMatch = window.location.hash.match(/^#\/equipment\/view\/(\d+)$/);
     if (eqMatch) {
         if (!currentUser) { showLogin(); return; }
-        renderEquipmentPage(parseInt(eqMatch[1]));
+        renderInventoryPage(parseInt(eqMatch[1]));
         setActiveSidebarItem('equipment');
         return;
     }
@@ -284,157 +284,162 @@ document.getElementById('login-form').addEventListener('submit', async e => {
 });
 
 // ============================================================
-// ==================== ОБОРУДОВАНИЕ ==========================
+// ==================== ИНВЕНТАРЬ (ОБОРУДОВАНИЕ) ==============
 // ============================================================
-const eqState = { limit: 10, offset: 0, search: '', inventory: '', status: '', isExpiredMode: false };
+const invState = { limit: 10, offset: 0, search: '', inventory: '', status: '', type: '', isExpiredMode: false };
 
 function initEquipmentPage() {
-    document.getElementById('btn-add-eq').addEventListener('click', () => showEquipmentForm());
+    document.getElementById('btn-add-eq').addEventListener('click', () => showInventoryForm());
     let t1;
     document.getElementById('eq-search').addEventListener('input', e => {
         clearTimeout(t1);
-        t1 = setTimeout(() => { eqState.search = e.target.value; eqState.offset = 0; loadEquipment(); }, 300);
+        t1 = setTimeout(() => { invState.search = e.target.value; invState.offset = 0; loadInventory(); }, 300);
     });
     let t2;
     document.getElementById('eq-inventory').addEventListener('input', e => {
         clearTimeout(t2);
-        t2 = setTimeout(() => { eqState.inventory = e.target.value; eqState.offset = 0; loadEquipment(); }, 300);
+        t2 = setTimeout(() => { invState.inventory = e.target.value; invState.offset = 0; loadInventory(); }, 300);
     });
     document.getElementById('eq-status-filter').addEventListener('change', e => {
-        eqState.status = e.target.value; eqState.offset = 0; loadEquipment();
+        invState.status = e.target.value; invState.offset = 0; loadInventory();
+    });
+    document.getElementById('eq-type-filter').addEventListener('change', e => {
+        invState.type = e.target.value; invState.offset = 0; loadInventory();
     });
     document.getElementById('btn-expired-verification').addEventListener('click', () => {
-        eqState.isExpiredMode = !eqState.isExpiredMode;
+        invState.isExpiredMode = !invState.isExpiredMode;
         const btn = document.getElementById('btn-expired-verification');
-        btn.className = eqState.isExpiredMode ? 'btn btn-danger btn-sm' : 'btn btn-warning btn-sm';
-        btn.textContent = eqState.isExpiredMode ? '❌ Показать все' : '⚠️ Просрочена поверка';
-        eqState.offset = 0;
-        loadEquipment();
+        btn.className = invState.isExpiredMode ? 'btn btn-danger btn-sm' : 'btn btn-warning btn-sm';
+        btn.textContent = invState.isExpiredMode ? '❌ Показать все' : '⚠️ Просрочена поверка';
+        invState.offset = 0;
+        loadInventory();
     });
 }
 
-async function loadEquipment() {
+async function loadInventory() {
     const tbody = document.getElementById('equipment-table-body');
-    tbody.innerHTML = '<tr><td colspan="8" class="loading">Загрузка...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="loading">Загрузка...</td></tr>';
     try {
-        const data = eqState.isExpiredMode
-            ? await api.getExpiredVerification(eqState.limit, eqState.offset)
-            : await api.getEquipment({ limit: eqState.limit, offset: eqState.offset, search: eqState.search, inventory: eqState.inventory, status: eqState.status });
+        const data = invState.isExpiredMode
+            ? await api.getExpiredVerification(invState.limit, invState.offset)
+            : await api.getInventory({ limit: invState.limit, offset: invState.offset, search: invState.search, inventory: invState.inventory, status: invState.status, type: invState.type });
 
-        const items = data.equipment || [];
+        const items = data.inventory || [];
         const meta = data.paginated_metadata || { total: 0, page: 1, total_pages: 1 };
 
         if (!items.length) {
-            tbody.innerHTML = `<tr><td colspan="8" class="empty-state">${eqState.isExpiredMode ? 'Нет просроченных' : 'Не найдено'}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" class="empty-state">${invState.isExpiredMode ? 'Нет просроченных' : 'Не найдено'}</td></tr>`;
             document.getElementById('eq-pagination').innerHTML = '';
             return;
         }
 
-        const rows = await Promise.all(items.map(async eq => {
+        const rows = await Promise.all(items.map(async inv => {
             let resp = '—';
-            if (eq.responsible_id) {
-                try { const u = await api.getUser(eq.responsible_id); if (u) resp = u.full_name; } catch {}
+            if (inv.responsible_id) {
+                try { const u = await api.getUser(inv.responsible_id); if (u) resp = u.full_name; } catch {}
             }
-            return renderEqRow(eq, resp);
+            return renderInvRow(inv, resp);
         }));
 
         tbody.innerHTML = rows.join('');
-        attachEqActions();
+        attachInvActions();
         renderEqPagination(meta.total_pages, meta.page);
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="8" class="empty-state">${UI.escape(err.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="empty-state">${UI.escape(err.message)}</td></tr>`;
     }
 }
 
-function renderEqRow(eq, resp) {
+function renderInvRow(inv, resp) {
     let verif = '<span class="text-muted">—</span>';
-    if (eq.next_verification_date) {
-        const expired = new Date(eq.next_verification_date) < new Date();
-        verif = `<span style="color:${expired ? '#dc2626' : '#16a34a'};font-weight:${expired ? 'bold' : 'normal'}">${UI.formatDateShort(eq.next_verification_date)}${expired ? ' ⚠️' : ''}</span>`;
+    if (inv.next_verification_date) {
+        const expired = new Date(inv.next_verification_date) < new Date();
+        verif = `<span style="color:${expired ? '#dc2626' : '#16a34a'};font-weight:${expired ? 'bold' : 'normal'}">${UI.formatDateShort(inv.next_verification_date)}${expired ? ' ⚠️' : ''}</span>`;
     }
     let badge;
-    if (eq.status) {
+    if (inv.status) {
         badge = '<span class="badge badge-available">Доступно</span>';
     } else {
-        badge = `<span class="badge badge-lost">Недоступно</span><div class="unavailable-reason">${UI.escape(eq.unavailable_reason || 'Причина не указана')}</div>`;
+        badge = `<span class="badge badge-lost">Недоступно</span><div class="unavailable-reason">${UI.escape(inv.unavailable_reason || 'Причина не указана')}</div>`;
     }
     const adminBtns = isAdmin() ? `
-        <button class="btn btn-secondary btn-sm" data-action="edit" data-id="${eq.id}">✏️</button>
-        <button class="btn btn-danger btn-sm" data-action="delete" data-id="${eq.id}">🗑️</button>` : '';
+        <button class="btn btn-secondary btn-sm" data-action="edit" data-id="${inv.id}">✏️</button>
+        <button class="btn btn-danger btn-sm" data-action="delete" data-id="${inv.id}">🗑️</button>` : '';
 
-    return `<tr class="${eq.status ? '' : 'row-unavailable'}">
-        <td>${eq.id}</td><td><strong>${UI.escape(eq.name)}</strong></td>
-        <td>${UI.escape(eq.inventory_number || '—')}</td><td>${UI.escape(eq.location || '—')}</td>
+    return `<tr class="${inv.status ? '' : 'row-unavailable'}">
+        <td>${inv.id}</td><td><strong>${UI.escape(inv.name)}</strong></td>
+        <td>${UI.escape(inv.type || '—')}</td><td>${UI.escape(inv.inventory_number || '—')}</td><td>${UI.escape(inv.location || '—')}</td>
         <td>${UI.escape(resp)}</td><td>${verif}</td><td>${badge}</td>
-        <td class="actions-cell"><button class="btn btn-secondary btn-sm" data-action="view" data-id="${eq.id}">👁️</button>${adminBtns}</td>
+        <td class="actions-cell"><button class="btn btn-secondary btn-sm" data-action="view" data-id="${inv.id}">👁️</button>${adminBtns}</td>
     </tr>`;
 }
 
-function attachEqActions() {
+function attachInvActions() {
     document.querySelectorAll('#equipment-table-body [data-action]').forEach(btn => {
         btn.addEventListener('click', async () => {
             const id = parseInt(btn.dataset.id);
             if (btn.dataset.action === 'view') window.location.hash = `/equipment/view/${id}`;
-            if (btn.dataset.action === 'edit') await showEquipmentForm(id);
-            if (btn.dataset.action === 'delete') await deleteEquipment(id);
+            if (btn.dataset.action === 'edit') await showInventoryForm(id);
+            if (btn.dataset.action === 'delete') await deleteInventory(id);
         });
     });
 }
 
-window.uploadPhotoForEquipment = async function(equipmentId, input) {
+window.uploadPhotoForInventory = async function(inventoryId, input) {
     const file = input.files[0];
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { UI.toast('Файл слишком большой (макс. 10 МБ)', 'error'); input.value = ''; return; }
     try {
-        await api.uploadPhoto(equipmentId, file);
+        await api.uploadPhoto(inventoryId, file);
         UI.toast('Фото загружено', 'success');
-        renderEquipmentPage(equipmentId);
+        renderInventoryPage(inventoryId);
     } catch (err) { UI.toast(err.message, 'error'); }
     finally { input.value = ''; }
 };
-
-async function showEquipmentForm(id = null) {
-    let eq = { name: '', description: '', location: '', documentation: '', inventory_number: '', responsible_id: '', status: true, unavailable_reason: '', last_verification_date: '', next_verification_date: '' };
+async function showInventoryForm(id = null) {
+    let inv = { name: '', type: '', description: '', location: '', documentation: '', inventory_number: '', responsible_id: '', status: true, unavailable_reason: '', last_verification_date: '', next_verification_date: '' };
     if (id) {
         try {
-            eq = await api.getEquipmentById(id);
-            if (eq.last_verification_date) eq.last_verification_date = eq.last_verification_date.substring(0, 10);
-            if (eq.next_verification_date) eq.next_verification_date = eq.next_verification_date.substring(0, 10);
+            inv = await api.getInventoryById(id);
+            if (inv.last_verification_date) inv.last_verification_date = inv.last_verification_date.substring(0, 10);
+            if (inv.next_verification_date) inv.next_verification_date = inv.next_verification_date.substring(0, 10);
         } catch (err) { UI.toast(err.message, 'error'); return; }
     }
     let users = []; try { users = await api.getUsers(); } catch {}
-    const opts = users.map(u => `<option value="${u.id}" ${eq.responsible_id === u.id ? 'selected' : ''}>${UI.escape(u.full_name)}</option>`).join('');
+    const opts = users.map(u => `<option value="${u.id}" ${inv.responsible_id === u.id ? 'selected' : ''}>${UI.escape(u.full_name)}</option>`).join('');
+    const types = ['Компьютер', 'Принтер', 'Монитор', 'Проектор', 'Сканер', 'Ксерокс', 'Телефон', 'Другое'];
+    const typeOpts = types.map(t => `<option value="${t}" ${inv.type === t ? 'selected' : ''}>${t}</option>`).join('');
     const reasons = ['На ремонте', 'Неисправно', 'Списано', 'Используется', 'Другое'];
-    const reasonOpts = reasons.map(r => `<option value="${r}" ${eq.unavailable_reason === r ? 'selected' : ''}>${r}</option>`).join('');
-    const isCustom = eq.unavailable_reason && !reasons.includes(eq.unavailable_reason);
+    const reasonOpts = reasons.map(r => `<option value="${r}" ${inv.unavailable_reason === r ? 'selected' : ''}>${r}</option>`).join('');
+    const isCustom = inv.unavailable_reason && !reasons.includes(inv.unavailable_reason);
 
-    UI.openModal(id ? 'Редактировать оборудование' : 'Новое оборудование', `
-        <form id="eq-form">
-            <div class="form-group"><label>Название <span class="required">*</span></label><input type="text" class="input" name="name" value="${UI.escape(eq.name)}" required minlength="1"></div>
-            <div class="form-group"><label>Описание</label><textarea class="input" name="description" rows="2" placeholder="Как работать, особенности...">${UI.escape(eq.description || '')}</textarea></div>
+    UI.openModal(id ? 'Редактировать инвентарь' : 'Новый инвентарь', `
+        <form id="inv-form">
+            <div class="form-group"><label>Название <span class="required">*</span></label><input type="text" class="input" name="name" value="${UI.escape(inv.name)}" required minlength="1"></div>
+            <div class="form-group"><label>Тип <span class="required">*</span></label><select class="input" name="type" required><option value="" disabled ${!inv.type ? 'selected' : ''}>Выберите тип...</option>${typeOpts}</select></div>
+            <div class="form-group"><label>Описание</label><textarea class="input" name="description" rows="2" placeholder="Как работать, особенности...">${UI.escape(inv.description || '')}</textarea></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div class="form-group"><label>Инв. номер</label><input type="text" class="input" name="inventory_number" value="${UI.escape(eq.inventory_number || '')}"></div>
-                <div class="form-group"><label>Локация <span class="required">*</span></label><input type="text" class="input" name="location" value="${UI.escape(eq.location || '')}" required placeholder="Каб. 305, стеллаж 2..."></div>
+                <div class="form-group"><label>Инв. номер</label><input type="text" class="input" name="inventory_number" value="${UI.escape(inv.inventory_number || '')}"></div>
+                <div class="form-group"><label>Локация <span class="required">*</span></label><input type="text" class="input" name="location" value="${UI.escape(inv.location || '')}" required placeholder="Каб. 305, стеллаж 2..."></div>
             </div>
-            <div class="form-group"><label>Документация (URL)</label><input type="text" class="input" name="documentation" value="${UI.escape(eq.documentation || '')}" placeholder="https://..."></div>
-            <div class="form-group"><label>Ответственный <span class="required">*</span></label><select class="input" name="responsible_id" required><option value="" disabled ${!eq.responsible_id ? 'selected' : ''}>Выберите ответственного...</option>${opts}</select></div>
+            <div class="form-group"><label>Документация (URL)</label><input type="text" class="input" name="documentation" value="${UI.escape(inv.documentation || '')}" placeholder="https://..."></div>
+            <div class="form-group"><label>Ответственный <span class="required">*</span></label><select class="input" name="responsible_id" required><option value="" disabled ${!inv.responsible_id ? 'selected' : ''}>Выберите ответственного...</option>${opts}</select></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div class="form-group"><label>Последняя поверка</label><input type="date" class="input" name="last_verification_date" value="${eq.last_verification_date || ''}"></div>
-                <div class="form-group"><label>Следующая поверка</label><input type="date" class="input" name="next_verification_date" value="${eq.next_verification_date || ''}"></div>
+                <div class="form-group"><label>Последняя поверка</label><input type="date" class="input" name="last_verification_date" value="${inv.last_verification_date || ''}"></div>
+                <div class="form-group"><label>Следующая поверка</label><input type="date" class="input" name="next_verification_date" value="${inv.next_verification_date || ''}"></div>
             </div>
-            <div class="form-group"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" name="status" id="eq-status-cb" ${eq.status ? 'checked' : ''}> Доступно</label></div>
-            <div class="form-group" id="reason-block" style="display:${eq.status ? 'none' : 'block'};">
+            <div class="form-group"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" name="status" id="inv-status-cb" ${inv.status ? 'checked' : ''}> Доступно</label></div>
+            <div class="form-group" id="reason-block" style="display:${inv.status ? 'none' : 'block'};">
                 <label>Причина недоступности</label>
                 <select class="input" name="unavailable_reason" id="reason-select"><option value="">— Выберите —</option>${reasonOpts}<option value="__custom" ${isCustom ? 'selected' : ''}>Другое...</option></select>
-                <input type="text" class="input" name="custom_reason" id="custom-reason" style="display:${isCustom ? 'block' : 'none'};margin-top:8px;" placeholder="Укажите причину" value="${isCustom ? UI.escape(eq.unavailable_reason) : ''}">
+                <input type="text" class="input" name="custom_reason" id="custom-reason" style="display:${isCustom ? 'block' : 'none'};margin-top:8px;" placeholder="Укажите причину" value="${isCustom ? UI.escape(inv.unavailable_reason) : ''}">
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="UI.closeModal()">Отмена</button><button type="submit" class="btn btn-primary">${id ? 'Сохранить' : 'Создать'}</button></div>
         </form>`);
 
-    document.getElementById('eq-status-cb').addEventListener('change', e => { document.getElementById('reason-block').style.display = e.target.checked ? 'none' : 'block'; });
+    document.getElementById('inv-status-cb').addEventListener('change', e => { document.getElementById('reason-block').style.display = e.target.checked ? 'none' : 'block'; });
     document.getElementById('reason-select').addEventListener('change', e => { document.getElementById('custom-reason').style.display = e.target.value === '__custom' ? 'block' : 'none'; });
 
-    document.getElementById('eq-form').addEventListener('submit', async e => {
+    document.getElementById('inv-form').addEventListener('submit', async e => {
         e.preventDefault();
         const fd = new FormData(e.target);
         const statusVal = fd.get('status') === 'on';
@@ -444,38 +449,30 @@ async function showEquipmentForm(id = null) {
             reason = sel === '__custom' ? (fd.get('custom_reason').trim() || 'Не указана') : (sel || null);
         }
         const payload = {
-            name: fd.get('name').trim(), description: fd.get('description').trim() || null, location: fd.get('location').trim() || null,
+            name: fd.get('name').trim(), type: fd.get('type').trim(), description: fd.get('description').trim() || null, location: fd.get('location').trim() || null,
             documentation: fd.get('documentation').trim() || null, inventory_number: fd.get('inventory_number').trim() || null,
             responsible_id: fd.get('responsible_id') || null, status: statusVal, unavailable_reason: reason,
             last_verification_date: fd.get('last_verification_date') || null, next_verification_date: fd.get('next_verification_date') || null
         };
         try {
-            if (id) { await api.updateEquipment(id, payload); UI.toast('Обновлено', 'success'); }
-            else { await api.createEquipment(payload); UI.toast('Создано', 'success'); }
+            if (id) { await api.updateInventory(id, payload); UI.toast('Обновлено', 'success'); }
+            else { await api.createInventory(payload); UI.toast('Создано', 'success'); }
             UI.closeModal();
-            if (window.location.hash.match(/#\/equipment\/view\/\d+/)) renderEquipmentPage(id);
-            else loadEquipment();
+            if (window.location.hash.match(/#\/equipment\/view\/\d+/)) renderInventoryPage(id);
+            else loadInventory();
         } catch (err) { UI.toast(err.message, 'error'); }
     });
 }
 
-async function deleteEquipment(id) {
-    if (!UI.confirm('Удалить оборудование?')) return;
-    try { await api.deleteEquipment(id); UI.toast('Удалено', 'success'); loadEquipment(); }
+async function deleteInventory(id) {
+    if (!UI.confirm('Удалить инвентарь?')) return;
+    try { await api.deleteInventory(id); UI.toast('Удалено', 'success'); loadInventory(); }
     catch (err) { UI.toast(err.message, 'error'); }
 }
 
-function renderEqPagination(totalPages, page) {
-    const c = document.getElementById('eq-pagination');
-    if (totalPages <= 1) { c.innerHTML = ''; return; }
-    c.innerHTML = `<div style="display:flex;gap:8px;justify-content:center;margin-top:16px;align-items:center;">
-        <button class="btn btn-sm btn-secondary" ${page === 1 ? 'disabled' : ''} onclick="changeEqPage(${page - 1})">←</button>
-        <span style="font-size:14px;">${page} / ${totalPages}</span>
-        <button class="btn btn-sm btn-secondary" ${page === totalPages ? 'disabled' : ''} onclick="changeEqPage(${page + 1})">→</button></div>`;
-}
-window.changeEqPage = p => { if (p < 1) return; eqState.offset = (p - 1) * eqState.limit; loadEquipment(); };
+window.changeEqPage = p => { if (p < 1) return; invState.offset = (p - 1) * invState.limit; loadInventory(); };
 
-async function renderEquipmentPage(id) {
+async function renderInventoryPage(id) {
     document.getElementById('app').style.display = 'none';
     let view = document.getElementById('full-page-view');
     if (!view) { view = document.createElement('div'); view.id = 'full-page-view'; document.body.appendChild(view); }
@@ -484,59 +481,60 @@ async function renderEquipmentPage(id) {
     window.scrollTo(0, 0);
 
     try {
-        const eq = await api.getEquipmentById(id);
+        const inv = await api.getInventoryById(id);
         let resp = 'Не назначен';
-        if (eq.responsible_id) { try { const u = await api.getUser(eq.responsible_id); if (u) resp = u.full_name; } catch {} }
-        let photos = []; try { photos = await api.getPhotos(eq.id) || []; } catch {}
+        if (inv.responsible_id) { try { const u = await api.getUser(inv.responsible_id); if (u) resp = u.full_name; } catch {} }
+        let photos = []; try { photos = await api.getPhotos(inv.id) || []; } catch {}
 
-        const lastVerif = eq.last_verification_date ? UI.formatDateShort(eq.last_verification_date) : '—';
+        const lastVerif = inv.last_verification_date ? UI.formatDateShort(inv.last_verification_date) : '—';
         let nextVerifHeader = '—', nextVerifFact = '—';
-        if (eq.next_verification_date) {
-            const expired = new Date(eq.next_verification_date) < new Date();
-            nextVerifHeader = `<span style="color:${expired ? '#fff' : '#c7f5d4'};font-weight:700">${UI.formatDateShort(eq.next_verification_date)}${expired ? ' · просрочена!' : ''}</span>`;
-            nextVerifFact = `<span style="color:${expired ? 'var(--danger)' : 'var(--success)'};font-weight:700">${UI.formatDateShort(eq.next_verification_date)}${expired ? ' ⚠️' : ''}</span>`;
+        if (inv.next_verification_date) {
+            const expired = new Date(inv.next_verification_date) < new Date();
+            nextVerifHeader = `<span style="color:${expired ? '#fff' : '#c7f5d4'};font-weight:700">${UI.formatDateShort(inv.next_verification_date)}${expired ? ' · просрочена!' : ''}</span>`;
+            nextVerifFact = `<span style="color:${expired ? 'var(--danger)' : 'var(--success)'};font-weight:700">${UI.formatDateShort(inv.next_verification_date)}${expired ? ' ⚠️' : ''}</span>`;
         }
-        const statusBadge = eq.status ? '<span class="ep-status ep-status-ok">✓ Доступно</span>' : '<span class="ep-status ep-status-bad">✕ Недоступно</span>';
-        const reasonLine = (!eq.status && eq.unavailable_reason) ? `<div class="ep-reason">Причина: ${UI.escape(eq.unavailable_reason)}</div>` : '';
+        const statusBadge = inv.status ? '<span class="ep-status ep-status-ok">✓ Доступно</span>' : '<span class="ep-status ep-status-bad">✕ Недоступно</span>';
+        const reasonLine = (!inv.status && inv.unavailable_reason) ? `<div class="ep-reason">Причина: ${UI.escape(inv.unavailable_reason)}</div>` : '';
         let docHtml = '<span class="ep-muted">—</span>';
-        if (eq.documentation) docHtml = eq.documentation.startsWith('http') ? `<a href="${UI.escape(eq.documentation)}" target="_blank" class="ep-doc-link">🔗 Открыть документацию</a>` : UI.escape(eq.documentation);
+        if (inv.documentation) docHtml = inv.documentation.startsWith('http') ? `<a href="${UI.escape(inv.documentation)}" target="_blank" class="ep-doc-link">🔗 Открыть документацию</a>` : UI.escape(inv.documentation);
 
         const featured = photos.length ? photos[0] : null;
         const mainImg = featured ? `<img id="ep-main-img" src="${api.photoUrl(featured.id)}" alt="${UI.escape(featured.filename)}" title="Открыть в новой вкладке">` : `<div id="ep-main-img" class="ep-no-photo">📷<span>Нет фотографий</span></div>`;
         const thumbs = photos.map((p, i) => `<div class="ep-thumb ${i === 0 ? 'active' : ''}" data-url="${api.photoUrl(p.id)}" data-id="${p.id}" title="${UI.escape(p.filename)} · ${UI.formatSize(p.size_bytes)}"><img src="${api.photoUrl(p.id)}" alt="${UI.escape(p.filename)}">${isAdmin() ? `<button class="ep-thumb-del" data-del="${p.id}" title="Удалить">×</button>` : ''}</div>`).join('');
-        const addPhotoTile = isAdmin() ? `<label class="ep-thumb ep-add" title="Добавить фото"><span>＋</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none" onchange="uploadPhotoForEquipment(${eq.id}, this)"></label>` : '';
+        const addPhotoTile = isAdmin() ? `<label class="ep-thumb ep-add" title="Добавить фото"><span>＋</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none" onchange="uploadPhotoForInventory(${inv.id}, this)"></label>` : '';
 
         view.innerHTML = `<div class="ep-container">
             <div class="ep-topbar"><button class="ep-back" onclick="window.location.hash=''">← К списку оборудования</button>
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                     <span class="user-badge">${UI.roleName(currentUser.role)}</span>
-                    ${isAdmin() ? `<button class="btn btn-primary" onclick="showEquipmentForm(${eq.id})">✏️ Редактировать</button>` : ''}
+                    ${isAdmin() ? `<button class="btn btn-primary" onclick="showInventoryForm(${inv.id})">✏️ Редактировать</button>` : ''}
                     <button class="ep-back" onclick="doLogout()">Выйти</button>
                 </div></div>
-            <div class="ep-header"><div class="ep-id">ID ${eq.id}</div><h1 class="ep-title">${UI.escape(eq.name)}</h1>
+            <div class="ep-header"><div class="ep-id">ID ${inv.id}</div><h1 class="ep-title">${UI.escape(inv.name)}</h1>
                 <div class="ep-statusline">${statusBadge}${reasonLine}</div>
-                <div class="ep-quick"><span>📍 ${UI.escape(eq.location || '—')}</span><span>👤 ${UI.escape(resp)}</span><span>🗓 След. поверка: ${nextVerifHeader}</span></div></div>
+                <div class="ep-quick"><span>📍 ${UI.escape(inv.location || '—')}</span><span>👤 ${UI.escape(resp)}</span><span>🗓 След. поверка: ${nextVerifHeader}</span></div></div>
             <div class="ep-grid">
                 <div class="ep-card ep-gallery-card"><div class="ep-main">${mainImg}</div>${(photos.length || isAdmin()) ? `<div class="ep-thumbs">${thumbs}${addPhotoTile}</div>` : ''}</div>
                 <div class="ep-card ep-facts-card"><h2 class="ep-card-title">Сведения</h2>
-                    <div class="ep-fact"><span class="ep-label">Инвентарный номер</span><span class="ep-value">${UI.escape(eq.inventory_number || '—')}</span></div>
-                    <div class="ep-fact"><span class="ep-label">Локация</span><span class="ep-value">${UI.escape(eq.location || '—')}</span></div>
+                    <div class="ep-fact"><span class="ep-label">Тип</span><span class="ep-value">${UI.escape(inv.type || '—')}</span></div>
+                    <div class="ep-fact"><span class="ep-label">Инвентарный номер</span><span class="ep-value">${UI.escape(inv.inventory_number || '—')}</span></div>
+                    <div class="ep-fact"><span class="ep-label">Локация</span><span class="ep-value">${UI.escape(inv.location || '—')}</span></div>
                     <div class="ep-fact"><span class="ep-label">Ответственный</span><span class="ep-value">${UI.escape(resp)}</span></div>
                     <div class="ep-fact"><span class="ep-label">Последняя поверка</span><span class="ep-value">${lastVerif}</span></div>
                     <div class="ep-fact"><span class="ep-label">Следующая поверка</span><span class="ep-value">${nextVerifFact}</span></div>
                     <div class="ep-fact"><span class="ep-label">Документация</span><span class="ep-value">${docHtml}</span></div>
-                    <div class="ep-fact"><span class="ep-label">Статус</span><span class="ep-value">${eq.status ? 'Доступно' : 'Недоступно'}</span></div></div>
+                    <div class="ep-fact"><span class="ep-label">Статус</span><span class="ep-value">${inv.status ? 'Доступно' : 'Недоступно'}</span></div></div>
             </div>
-            <div class="ep-card ep-desc-card"><h2 class="ep-card-title">Описание</h2><p class="ep-desc">${UI.escape(eq.description || 'Описание отсутствует.')}</p></div>
-            <div class="ep-meta">Создано: ${UI.formatDate(eq.created_at)} · Обновлено: ${UI.formatDate(eq.updated_at)}</div></div>`;
+            <div class="ep-card ep-desc-card"><h2 class="ep-card-title">Описание</h2><p class="ep-desc">${UI.escape(inv.description || 'Описание отсутствует.')}</p></div>
+            <div class="ep-meta">Создано: ${UI.formatDate(inv.created_at)} · Обновлено: ${UI.formatDate(inv.updated_at)}</div></div>`;
 
-        wireEquipmentPage(eq, photos);
+        wireInventoryPage(inv, photos);
     } catch (err) {
-        view.innerHTML = `<div class="ep-error"><div class="ep-error-icon">⚠️</div><h2>Не удалось загрузить оборудование</h2><p>${UI.escape(err.message)}</p><button class="btn btn-secondary" onclick="window.location.hash=''">← Вернуться к списку</button></div>`;
+        view.innerHTML = `<div class="ep-error"><div class="ep-error-icon">⚠️</div><h2>Не удалось загрузить инвентарь</h2><p>${UI.escape(err.message)}</p><button class="btn btn-secondary" onclick="window.location.hash=''">← Вернуться к списку</button></div>`;
     }
 }
 
-function wireEquipmentPage(eq, photos) {
+function wireInventoryPage(inv, photos) {
     document.querySelectorAll('.ep-thumb[data-url]').forEach(th => {
         th.addEventListener('click', (e) => {
             if (e.target.closest('.ep-thumb-del')) return;
@@ -554,47 +552,10 @@ function wireEquipmentPage(eq, photos) {
         btn.addEventListener('click', async (e) => {
             e.stopPropagation();
             if (!UI.confirm('Удалить фото?')) return;
-            try { await api.deletePhoto(parseInt(btn.dataset.del)); UI.toast('Фото удалено', 'success'); renderEquipmentPage(eq.id); }
+            try { await api.deletePhoto(parseInt(btn.dataset.del)); UI.toast('Фото удалено', 'success'); renderInventoryPage(inv.id); }
             catch (err) { UI.toast(err.message, 'error'); }
         });
     });
-}
-
-// ============================================================
-// ========================= СТАТЬИ ===========================
-// ============================================================
-const artState = { limit: 10, offset: 0, search: '', status: '' };
-function articleStatusName(s) { return { planned: 'План', submitted: 'Подана', published: 'Вышла' }[s] || s; }
-
-function initArticlesPage() {
-    document.getElementById('btn-add-article').addEventListener('click', () => showArticleForm());
-    let t;
-    document.getElementById('art-search').addEventListener('input', e => {
-        clearTimeout(t); t = setTimeout(() => { artState.search = e.target.value; artState.offset = 0; loadArticles(); }, 300);
-    });
-    document.getElementById('art-status-filter').addEventListener('change', e => { artState.status = e.target.value; artState.offset = 0; loadArticles(); });
-}
-
-async function loadArticles() {
-    const tbody = document.getElementById('articles-table-body');
-    tbody.innerHTML = '<tr><td colspan="6" class="loading">Загрузка...</td></tr>';
-    try {
-        const data = await api.getArticles({ limit: artState.limit, offset: artState.offset, search: artState.search, status: artState.status });
-        const items = data.articles || [];
-        const meta = data.paginated_metadata || { total: 0, page: 1, total_pages: 1 };
-        if (!items.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Статьи не найдены</td></tr>'; document.getElementById('art-pagination').innerHTML = ''; return; }
-        tbody.innerHTML = items.map((a, i) => renderArticleRow(a, artState.offset + i + 1)).join('');
-        attachArticleActions();
-        renderArtPagination(meta.total_pages, meta.page);
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${UI.escape(err.message)}</td></tr>`; }
-}
-
-function renderArticleRow(a, num) {
-    const authors = (a.authors || []).map(x => x.name).join(', ');
-    return `<tr><td>${num}</td><td><strong>${UI.escape(a.title)}</strong><div class="text-muted" style="font-size:12px;margin-top:2px;">${UI.escape(authors)}</div></td>
-        <td>${UI.escape(a.indexing || '—')}</td><td>${UI.escape(a.white_list_level || '—')}</td>
-        <td><span class="badge badge-${a.status}">${articleStatusName(a.status)}</span></td>
-        <td class="actions-cell"><button class="btn btn-secondary btn-sm" data-action="view" data-id="${a.id}">👁️</button><button class="btn btn-secondary btn-sm" data-action="edit" data-id="${a.id}">✏️</button><button class="btn btn-danger btn-sm" data-action="delete" data-id="${a.id}">🗑️</button></td></tr>`;
 }
 
 function attachArticleActions() {

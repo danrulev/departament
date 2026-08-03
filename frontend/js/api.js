@@ -152,36 +152,37 @@ class ApiClient {
     getKeyHistory(id)    { return this.request(`/keys/${id}/history`); }
     getKeyHolder(id)     { return this.request(`/keys/${id}/holder`); }
 
-    // ─── Equipment ───
-    getEquipment(params = {}) {
+    // ─── Inventory ───
+    getInventory(params = {}) {
         const q = new URLSearchParams();
         if (params.limit)     q.append('limit', params.limit);
         if (params.offset)    q.append('offset', params.offset);
         if (params.search)    q.append('search', params.search);
         if (params.inventory) q.append('inventory', params.inventory);
         if (params.status)    q.append('status', params.status);
+        if (params.type)      q.append('type', params.type);
         const qs = q.toString();
-        return this.request(`/equipment${qs ? '?' + qs : ''}`);
+        return this.request(`/inventory${qs ? '?' + qs : ''}`);
     }
-    getEquipmentById(id)         { return this.request(`/equipment/${id}`); }
-    createEquipment(data)        { return this.request('/equipment', { method: 'POST', body: JSON.stringify(data) }); }
-    updateEquipment(id, data)    { return this.request(`/equipment/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
-    deleteEquipment(id)          { return this.request(`/equipment/${id}`, { method: 'DELETE' }); }
-    getExpiredVerification(l, o) { return this.request(`/equipment/expired-verification?limit=${l}&offset=${o}`); }
+    getInventoryById(id)         { return this.request(`/inventory/${id}`); }
+    createInventory(data)        { return this.request('/inventory', { method: 'POST', body: JSON.stringify(data) }); }
+    updateInventory(id, data)    { return this.request(`/inventory/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
+    deleteInventory(id)          { return this.request(`/inventory/${id}`, { method: 'DELETE' }); }
+    getExpiredVerification(l, o) { return this.request(`/inventory/expired-verification?limit=${l}&offset=${o}`); }
 
     // ─── Photos ───
-    getPhotos(equipmentId) { return this.request(`/equipment/${equipmentId}/photos`); }
+    getPhotos(inventoryId) { return this.request(`/inventory/${inventoryId}/photos`); }
     deletePhoto(photoId)   { return this.request(`/photos/${photoId}`, { method: 'DELETE' }); }
     photoUrl(photoId)      { return `${this.baseURL}/photos/${photoId}`; }
 
-    async uploadPhoto(equipmentId, file, _isRetry = false) {
+    async uploadPhoto(inventoryId, file, _isRetry = false) {
         const formData = new FormData();
         formData.append('photo', file);
 
         const headers = {};
         if (this.accessToken) headers['Authorization'] = `Bearer ${this.accessToken}`;
 
-        const res = await fetch(`${this.baseURL}/equipment/${equipmentId}/photos`, {
+        const res = await fetch(`${this.baseURL}/inventory/${inventoryId}/photos`, {
             method: 'POST',
             credentials: 'include',
             headers,
@@ -190,7 +191,7 @@ class ApiClient {
 
         if (res.status === 401 && !_isRetry) {
             const refreshed = await this.refresh();
-            if (refreshed) return this.uploadPhoto(equipmentId, file, true);
+            if (refreshed) return this.uploadPhoto(inventoryId, file, true);
             this.clearToken();
             window.dispatchEvent(new Event('auth:logout'));
             throw new Error('Сессия истекла');
