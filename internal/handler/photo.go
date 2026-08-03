@@ -41,7 +41,6 @@ func NewPhotoHandler(svc InventoryPhotoService, cfg config.PhotoConfig) *Invento
 
 func (h *InventoryPhotoHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/inventory/:id/photos", h.upload, requireRoles(adminKey))
-	rg.GET("/inventory/:id/photos", h.list)
 	rg.DELETE("/photos/:photo_id", h.delete, requireRoles(adminKey))
 }
 
