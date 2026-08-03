@@ -668,6 +668,16 @@ function renderArtPagination(totalPages, page) {
 }
 window.changeArtPage = p => { if (p < 1) return; artState.offset = (p - 1) * artState.limit; loadArticles(); };
 
+function renderEqPagination(totalPages, page) {
+    const c = document.getElementById('eq-pagination');
+    if (totalPages <= 1) { c.innerHTML = ''; return; }
+    c.innerHTML = `<div style="display:flex;gap:8px;justify-content:center;margin-top:16px;align-items:center;">
+        <button class="btn btn-sm btn-secondary" ${page === 1 ? 'disabled' : ''} onclick="changeEqPage(${page - 1})">←</button>
+        <span style="font-size:14px;">${page} / ${totalPages}</span>
+        <button class="btn btn-sm btn-secondary" ${page === totalPages ? 'disabled' : ''} onclick="changeEqPage(${page + 1})">→</button></div>`;
+}
+window.changeEqPage = p => { if (p < 1) return; invState.offset = (p - 1) * invState.limit; loadInventory(); };
+
 function addAuthorRow(author, users) {
     const list = document.getElementById('authors-list');
     const userOpts = users.map(u => `<option value="${u.id}" ${author && author.user_id === u.id ? 'selected' : ''}>${UI.escape(u.full_name)}</option>`).join('');

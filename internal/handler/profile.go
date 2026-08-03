@@ -22,7 +22,7 @@ type ProfileHandler struct {
 
 func NewProfileHandler(svc ProfileService, cfg config.PhotoConfig) *ProfileHandler {
 	_ = os.MkdirAll(cfg.AvatarPhotoDir, 0755)
-	return &ProfileHandler{svc: svc}
+	return &ProfileHandler{svc: svc, cfg: cfg}
 }
 
 // Защищённые маршруты
