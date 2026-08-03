@@ -7,7 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 func New(dbPath string, log *zap.Logger) (*sqlx.DB, error) {
