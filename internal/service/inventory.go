@@ -35,6 +35,8 @@ func (s *EquipmentService) Create(ctx context.Context, e *models.Inventory) erro
 		return errors.New("equipment name is required")
 	}
 
+	s.log.Debug("equipment", zap.Any("equipment", e))
+
 	// Проверка уникальности инвентарного номера
 	if e.InventoryNumber != nil && *e.InventoryNumber != "" {
 		existing, err := s.repo.GetByInventoryNumber(ctx, *e.InventoryNumber)

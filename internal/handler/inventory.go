@@ -83,6 +83,7 @@ func (h *InventoryHandler) create(c *gin.Context) {
 
 	Inventory := &models.Inventory{
 		Name:                 req.Name,
+		Type:                 req.Type,
 		Description:          req.Description,
 		Location:             req.Location,
 		Documentation:        req.Documentation,
