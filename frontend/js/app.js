@@ -57,6 +57,12 @@ document.getElementById('modal-overlay').addEventListener('click', e => {
 document.getElementById('modal-close').addEventListener('click', () => UI.closeModal());
 document.addEventListener('keydown', e => { if (e.key === 'Escape') UI.closeModal(); });
 
+// Утилита для отображения типа оборудования
+function formatType(t) {
+    const labels = { equipment: 'Оборудование', inventory: 'Инвентарь', raw_material: 'Сырьё', other: 'Другое' };
+    return labels[t] || t || '—';
+}
+
 // ============================================================
 // ==================== СОСТОЯНИЕ AUTH ========================
 // ============================================================
@@ -367,7 +373,7 @@ function renderInvRow(inv, resp) {
 
     return `<tr class="${inv.status ? '' : 'row-unavailable'}">
         <td>${inv.id}</td><td><strong>${UI.escape(inv.name)}</strong></td>
-        <td>${UI.escape(inv.type || '—')}</td><td>${UI.escape(inv.inventory_number || '—')}</td><td>${UI.escape(inv.location || '—')}</td>
+        <td>${formatType(inv.type)}</td><td>${UI.escape(inv.inventory_number || '—')}</td><td>${UI.escape(inv.location || '—')}</td>
         <td>${UI.escape(resp)}</td><td>${verif}</td><td>${badge}</td>
         <td class="actions-cell"><button class="btn btn-secondary btn-sm" data-action="view" data-id="${inv.id}">👁️</button>${adminBtns}</td>
     </tr>`;
@@ -406,8 +412,9 @@ async function showInventoryForm(id = null) {
     }
     let users = []; try { users = await api.getUsers(); } catch {}
     const opts = users.map(u => `<option value="${u.id}" ${inv.responsible_id === u.id ? 'selected' : ''}>${UI.escape(u.full_name)}</option>`).join('');
-    const types = ['Компьютер', 'Принтер', 'Монитор', 'Проектор', 'Сканер', 'Ксерокс', 'Телефон', 'Другое'];
-    const typeOpts = types.map(t => `<option value="${t}" ${inv.type === t ? 'selected' : ''}>${t}</option>`).join('');
+    const types = ['equipment', 'inventory', 'raw_material', 'other'];
+    const typeLabels = { equipment: 'Оборудование', inventory: 'Инвентарь', raw_material: 'Сырьё', other: 'Другое' };
+    const typeOpts = types.map(t => `<option value="${t}" ${inv.type === t ? 'selected' : ''}>${typeLabels[t]}</option>`).join('');
     const reasons = ['На ремонте', 'Неисправно', 'Списано', 'Используется', 'Другое'];
     const reasonOpts = reasons.map(r => `<option value="${r}" ${inv.unavailable_reason === r ? 'selected' : ''}>${r}</option>`).join('');
     const isCustom = inv.unavailable_reason && !reasons.includes(inv.unavailable_reason);
@@ -516,7 +523,7 @@ async function renderInventoryPage(id) {
             <div class="ep-grid">
                 <div class="ep-card ep-gallery-card"><div class="ep-main">${mainImg}</div>${(photos.length || isAdmin()) ? `<div class="ep-thumbs">${thumbs}${addPhotoTile}</div>` : ''}</div>
                 <div class="ep-card ep-facts-card"><h2 class="ep-card-title">Сведения</h2>
-                    <div class="ep-fact"><span class="ep-label">Тип</span><span class="ep-value">${UI.escape(inv.type || '—')}</span></div>
+                    <div class="ep-fact"><span class="ep-label">Тип</span><span class="ep-value">${formatType(inv.type)}</span></div>
                     <div class="ep-fact"><span class="ep-label">Инвентарный номер</span><span class="ep-value">${UI.escape(inv.inventory_number || '—')}</span></div>
                     <div class="ep-fact"><span class="ep-label">Локация</span><span class="ep-value">${UI.escape(inv.location || '—')}</span></div>
                     <div class="ep-fact"><span class="ep-label">Ответственный</span><span class="ep-value">${UI.escape(resp)}</span></div>

@@ -5,12 +5,7 @@ node_modules/
 # Build artifacts
 dist/
 build/
-*.min.js
-*.bundle.js
-
-# Logs and temp files
-*.log
-*.tmp
+*.js.map
 
 # Environment
 .env
@@ -21,6 +16,11 @@ build/
 .vscode/
 .idea/
 *.swp
+*.swo
+
+# Logs and temp files
+*.log
+*.tmp
 
 # Python
 __pycache__/
@@ -28,64 +28,53 @@ __pycache__/
 *.pyo
 *.pyd
 
+# Compiled
+*.o
+*.obj
+*.so
+*.a
+*.dll
+*.exe
+*.out
+
 # Coverage
 coverage/
 htmlcov/
 .coverage
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Pytest
-.pytest_cache/
-
 # MyPy
 .mypy_cache/
 
-# VS Code
-.vscode/
+# PyTest
+.pytest_cache/
 
-# IntelliJ IDEA
-.idea/
+# Gradle
+.gradle/
 
-# macOS
-.DS_Store
+# Target
+target/
 
-# Windows
-Thumbs.db
-ehthumbs.db
-Icon?
-desktop.ini
-
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Compiled JavaScript
-*.min.js
-*.bundle.js
-
-# Source maps
-*.map
-
-# Frontend build artifacts
-dist/
-build/
+# Compression
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 ```

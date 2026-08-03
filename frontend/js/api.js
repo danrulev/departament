@@ -3,13 +3,21 @@ const API_BASE = '/api/v1';
 class ApiClient {
     constructor(baseURL) {
         this.baseURL = baseURL;
-        this.accessToken = null;
+        this.accessToken = localStorage.getItem('access_token');
         this._refreshing = null;
     }
 
-    setToken(token) { this.accessToken = token; }
-    clearToken()    { this.accessToken = null; }
-    isLoggedIn()    { return !!this.accessToken; }
+    setToken(token) { 
+        this.accessToken = token;
+        localStorage.setItem('access_token', token);
+    }
+    
+    clearToken() {
+        this.accessToken = null;
+        localStorage.removeItem('access_token');
+    }
+    
+    isLoggedIn() { return !!this.accessToken; }
 
     parseToken() {
         if (!this.accessToken) return null;
