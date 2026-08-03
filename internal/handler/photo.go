@@ -1,9 +1,8 @@
-// internal/handler/photo.go
-
 package handler
 
 import (
 	"context"
+	"fmt"
 	"mime/multipart"
 	"mitm-departament/internal/config"
 	"mitm-departament/internal/models"
@@ -12,6 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
+	"github.com/skip2/go-qrcode"
 )
 
 var allowedTypes = map[string]string{
@@ -31,6 +31,7 @@ type InventoryPhotoService interface {
 	ListByInventory(ctx context.Context, InventoryID int64) ([]models.InventoryPhoto, error)
 	GetByID(ctx context.Context, id int64) (*models.InventoryPhoto, error)
 	Delete(ctx context.Context, id int64) error
+	GetInventoryByID(ctx context.Context, id int64) (*models.Inventory, error)
 }
 
 func NewPhotoHandler(svc InventoryPhotoService, cfg config.PhotoConfig) *InventoryPhotoHandler {
@@ -42,12 +43,14 @@ func NewPhotoHandler(svc InventoryPhotoService, cfg config.PhotoConfig) *Invento
 func (h *InventoryPhotoHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/inventory/:id/photos", h.upload, requireRoles(adminKey))
 	rg.DELETE("/photos/:photo_id", h.delete, requireRoles(adminKey))
+	rg.GET("/inventory/:id/qr", h.qrCode)
 }
 
 // Публичный маршрут — отдача файла (для <img src>)
 func (h *InventoryPhotoHandler) RegisterPublicRoutes(rg *gin.RouterGroup) {
 	rg.GET("/inventory/:id/photos", h.list)
 	rg.GET("/photos/:photo_id", h.serve)
+	rg.GET("/inventory/:id/qr", h.qrCode)
 }
 
 // POST /Inventory/:id/photos  (multipart/form-data, поле "photo")
@@ -150,4 +153,38 @@ func (h *InventoryPhotoHandler) delete(c *gin.Context) {
 	h.svc.Delete(c.Request.Context(), id)
 
 	c.JSON(http.StatusOK, MessageResponse{Message: "фото удалено"})
+}
+
+// GET /inventory/:id/qr — генерирует и отдаёт QR-код со ссылкой на страницу оборудования
+func (h *InventoryPhotoHandler) qrCode(c *gin.Context) {
+	equipID, ok := parseIDParam(c, "id")
+	if !ok {
+		return
+	}
+
+	// Проверяем, существует ли оборудование
+	_, err := h.svc.GetInventoryByID(c.Request.Context(), equipID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, ErrorResponse{Error: "оборудование не найдено"})
+		return
+	}
+
+	// Формируем URL страницы оборудования (относительный путь для фронтенда)
+	baseURL := c.Request.Host
+	scheme := "http"
+	if c.Request.TLS != nil {
+		scheme = "https"
+	}
+	inventoryURL := scheme + "://" + baseURL + "/#/equipment/view/" + fmt.Sprintf("%d", equipID)
+
+	// Генерируем QR-код
+	pngData, err := qrcode.Encode(inventoryURL, qrcode.Medium, 256)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "ошибка генерации QR-кода"})
+		return
+	}
+
+	c.Header("Content-Type", "image/png")
+	c.Header("Content-Disposition", fmt.Sprintf("inline; filename=\"inventory_%d_qr.png\"", equipID))
+	c.Data(http.StatusOK, "image/png", pngData)
 }
