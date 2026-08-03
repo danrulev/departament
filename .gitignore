@@ -1,75 +1,88 @@
 ```
-# Go-specific ignores
-go.sum
-*.mod
-*.sum
-vendor/
-
 # Dependencies
 node_modules/
-.venv/
-venv/
+vendor/
+
+# Build outputs
+dist/
+build/
+target/
+*.o
+*.obj
+*.a
+*.so
+*.dll
+*.exe
+*.out
+
+# Python
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.venv*/
+.python-version
 .mypy_cache/
 .pytest_cache/
-target/
-.gradle/
+.coverage
+coverage/
 
-# Compiled/Build artifacts
-*.pyc
-*.class
-*.o
+# Node.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+node_modules/
+npm/
+.cache/
+.npm/
+.yarn/
+
+# Go
 *.exe
 *.dll
 *.so
-*.a
-*.obj
-*.out
-dist/
-build/
+*.dylib
+*.test
+*.prof
+cover.out
+coverage.txt
 
-# Environment
+# Logs
+*.log
+*.tmp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Environment variables
 .env
 .env.local
-*.env.*
+.env.*
+!.env.example
 
-# Editors/IDE
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# System
-.DS_Store
-Thumbs.db
-
-# Logs and coverage
-*.log
-coverage/
-htmlcov/
-.coverage
-
-# Compressed files
+# Archives
 *.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
 *.tar.gz
 *.tar.bz2
 *.tar.xz
-*.tar.zst
+*.gz
+*.rar
+*.7z
 ```

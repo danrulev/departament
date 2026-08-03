@@ -585,12 +585,14 @@ async function renderInventoryPage(id) {
         const mainImg = featured ? `<img id="ep-main-img" src="${api.photoUrl(featured.id)}" alt="${UI.escape(featured.filename)}" title="Открыть в новой вкладке">` : `<div id="ep-main-img" class="ep-no-photo">📷<span>Нет фотографий</span></div>`;
         const thumbs = photos.map((p, i) => `<div class="ep-thumb ${i === 0 ? 'active' : ''}" data-url="${api.photoUrl(p.id)}" data-id="${p.id}" title="${UI.escape(p.filename)} · ${UI.formatSize(p.size_bytes)}"><img src="${api.photoUrl(p.id)}" alt="${UI.escape(p.filename)}">${isAdmin() ? `<button class="ep-thumb-del" data-del="${p.id}" title="Удалить">×</button>` : ''}</div>`).join('');
         const addPhotoTile = isAdmin() ? `<label class="ep-thumb ep-add" title="Добавить фото"><span>＋</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none" onchange="uploadPhotoForInventory(${inv.id}, this)"></label>` : '';
+        const qrCodeUrl = api.qrCodeUrl(inv.id);
 
         view.innerHTML = `<div class="ep-container">
             <div class="ep-topbar"><button class="ep-back" onclick="window.location.hash=''">← К списку оборудования</button>
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                     <span class="user-badge">${UI.roleName(currentUser.role)}</span>
                     ${isAdmin() ? `<button class="btn btn-primary" onclick="showInventoryForm(${inv.id})">✏️ Редактировать</button>` : ''}
+                    <button class="btn btn-secondary" onclick="downloadQRCode(${inv.id})">⬇️ Скачать QR</button>
                     <button class="ep-back" onclick="doLogout()">Выйти</button>
                 </div></div>
             <div class="ep-header"><div class="ep-id">ID ${inv.id}</div><h1 class="ep-title">${UI.escape(inv.name)}</h1>
@@ -607,6 +609,7 @@ async function renderInventoryPage(id) {
                     <div class="ep-fact"><span class="ep-label">Следующая поверка</span><span class="ep-value">${nextVerifFact}</span></div>
                     <div class="ep-fact"><span class="ep-label">Документация</span><span class="ep-value">${docHtml}</span></div>
                     <div class="ep-fact"><span class="ep-label">Статус</span><span class="ep-value">${inv.status ? 'Доступно' : 'Недоступно'}</span></div></div>
+                <div class="ep-card ep-qr-card"><h2 class="ep-card-title">QR-код</h2><div class="ep-qr-wrapper"><img src="${qrCodeUrl}" alt="QR-код для оборудования ${UI.escape(inv.name)}" class="ep-qr-image" title="Нажмите для скачивания" onclick="downloadQRCode(${inv.id})"></div></div>
             </div>
             <div class="ep-card ep-desc-card"><h2 class="ep-card-title">Описание</h2><p class="ep-desc">${UI.escape(inv.description || 'Описание отсутствует.')}</p></div>
             <div class="ep-meta">Создано: ${UI.formatDate(inv.created_at)} · Обновлено: ${UI.formatDate(inv.updated_at)}</div></div>`;
@@ -640,6 +643,28 @@ function wireInventoryPage(inv, photos) {
         });
     });
 }
+
+// Функция для скачивания QR-кода
+async function downloadQRCode(inventoryId) {
+    try {
+        const qrUrl = api.qrCodeUrl(inventoryId);
+        const response = await fetch(qrUrl);
+        if (!response.ok) throw new Error('Не удалось получить QR-код');
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `inventory_${inventoryId}_qr.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        UI.toast('QR-код скачан', 'success');
+    } catch (err) {
+        UI.toast(err.message, 'error');
+    }
+}
+window.downloadQRCode = downloadQRCode;
 
 function attachArticleActions() {
     document.querySelectorAll('#articles-table-body [data-action]').forEach(btn => {
