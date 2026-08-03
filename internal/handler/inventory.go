@@ -39,7 +39,7 @@ func (h *InventoryHandler) RegisterRoutes(rg *gin.RouterGroup) {
 }
 
 func (h *InventoryHandler) RegisterPublicRoutes(rg *gin.RouterGroup) {
-	Inventory := rg.Group("/Inventory")
+	Inventory := rg.Group("/inventory")
 	{
 		Inventory.GET("/:id", h.getByID)
 	}
