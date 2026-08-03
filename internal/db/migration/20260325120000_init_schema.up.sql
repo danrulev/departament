@@ -49,7 +49,7 @@ CREATE INDEX IF NOT EXISTS idx_key_logs_user_id ON key_logs(user_id);
 
 CREATE TABLE IF NOT EXISTS inventory(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    type TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('equipment', 'inventory', 'raw_material', 'other')),
     name TEXT NOT NULL NOT NULL, -- НАИМЕНОВАНИЕ
     description TEXT, -- КАК РАБОТАТЬ
     location TEXT NOT NULL, -- РАСПОЛОЖЕНИЕ
