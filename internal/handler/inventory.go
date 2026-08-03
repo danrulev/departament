@@ -28,7 +28,7 @@ func NewInventoryHandler(svc InventoryService) *InventoryHandler {
 }
 
 func (h *InventoryHandler) RegisterRoutes(rg *gin.RouterGroup) {
-	Inventory := rg.Group("/Inventory")
+	Inventory := rg.Group("/inventory")
 	{
 		Inventory.POST("", h.create, requireRoles(adminKey))
 		Inventory.GET("", h.list)

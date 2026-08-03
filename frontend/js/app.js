@@ -176,7 +176,7 @@ function initSidebar() {
                 document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
                 const target = document.getElementById(`page-${page}`);
                 if (target) target.classList.add('active');
-                if (page === 'equipment') loadEquipment();
+                if (page === 'equipment') loadInventory();
                 if (page === 'keys') loadKeys();
                 if (page === 'articles') loadArticles();
                 if (page === 'users') loadUsers();
@@ -249,7 +249,7 @@ function showMainApp() {
     if (view) view.style.display = 'none';
     document.getElementById('app').style.display = '';
     const active = document.querySelector('.page.active');
-    if (active && active.id === 'page-equipment') loadEquipment();
+    if (active && active.id === 'page-equipment') loadInventory();
 }
 
 window.addEventListener('auth:logout', () => {
