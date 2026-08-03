@@ -23,15 +23,19 @@ type PhotoRepo interface {
 	CountByInventory(ctx context.Context, inventoryID int64) (int, error)
 }
 
-type PhotoService struct {
-	repo PhotoRepo
-
-	cfg config.PhotoConfig
-	log *zap.Logger
+type InventoryRepo interface {
+	GetByID(ctx context.Context, id int64) (*models.Inventory, error)
 }
 
-func NewPhotoService(repo PhotoRepo, cfg config.PhotoConfig, log *zap.Logger) *PhotoService {
-	return &PhotoService{repo: repo, cfg: cfg, log: log}
+type PhotoService struct {
+	repo       PhotoRepo
+	inventory  InventoryRepo
+	cfg        config.PhotoConfig
+	log        *zap.Logger
+}
+
+func NewPhotoService(repo PhotoRepo, inventory InventoryRepo, cfg config.PhotoConfig, log *zap.Logger) *PhotoService {
+	return &PhotoService{repo: repo, inventory: inventory, cfg: cfg, log: log}
 }
 
 func (p *PhotoService) Create(ctx context.Context, file multipart.File, ext string, photo *models.InventoryPhoto) error {
@@ -93,4 +97,8 @@ func (p *PhotoService) Delete(ctx context.Context, id int64) error {
 	}
 
 	return nil
+}
+
+func (p *PhotoService) GetInventoryByID(ctx context.Context, id int64) (*models.Inventory, error) {
+	return p.inventory.GetByID(ctx, id)
 }

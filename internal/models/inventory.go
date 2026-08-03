@@ -21,10 +21,10 @@ type Inventory struct {
 
 // InventoryFilter — параметры фильтрации и пагинации для списка оборудования
 type InventoryFilter struct {
-	Type            *string `json:"type" db:"type"`
-	Search          *string `form:"search"`    // ✅ ?search=
-	InventoryNumber *string `form:"inventory"` // ✅ ?inventory=
-	Status          *bool   `form:"-"`         // ✅ игнорируем (парсится вручную)
+	Type            *string `form:"type"`       // ✅ ?type=
+	Search          *string `form:"search"`     // ✅ ?search=
+	InventoryNumber *string `form:"inventory"`  // ✅ ?inventory=
+	Status          *bool   `form:"-"`          // ✅ игнорируем (парсится вручную)
 	Paginated       Paginated
 }
 

@@ -44,6 +44,6 @@ func New(
 		User:      NewUserService(userRepo, cfg.Photo, hasher, log),
 		Key:       NewKeyService(keyRepo, keyLogRepo, db, log),
 		Equipment: NewEquipmentService(equipmentRepo, log),
-		Photo:     NewPhotoService(photo, cfg.Photo, log),
+		Photo:     NewPhotoService(photo, equipmentRepo, cfg.Photo, log),
 	}
 }
