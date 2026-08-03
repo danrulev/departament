@@ -40,13 +40,14 @@ func NewPhotoHandler(svc InventoryPhotoService, cfg config.PhotoConfig) *Invento
 }
 
 func (h *InventoryPhotoHandler) RegisterRoutes(rg *gin.RouterGroup) {
-	rg.POST("/Inventory/:id/photos", h.upload, requireRoles(adminKey))
-	rg.GET("/Inventory/:id/photos", h.list)
+	rg.POST("/inventory/:id/photos", h.upload, requireRoles(adminKey))
+	rg.GET("/inventory/:id/photos", h.list)
 	rg.DELETE("/photos/:photo_id", h.delete, requireRoles(adminKey))
 }
 
 // Публичный маршрут — отдача файла (для <img src>)
 func (h *InventoryPhotoHandler) RegisterPublicRoutes(rg *gin.RouterGroup) {
+	rg.GET("/inventory/:id/photos", h.list)
 	rg.GET("/photos/:photo_id", h.serve)
 }
 
