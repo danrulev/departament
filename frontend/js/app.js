@@ -148,6 +148,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
     }
+    
+    // Проверяем сохраненный токен при загрузке страницы
+    const savedToken = localStorage.getItem('access_token');
+    if (savedToken && !currentUser) {
+        try {
+            const me = await api.getMe();
+            if (me) {
+                currentUser = api.parseToken();
+                showApp();
+                handleRoute();
+                return;
+            }
+        } catch {}
+    }
+    
     showLogin();
 });
 
@@ -288,6 +303,67 @@ document.getElementById('login-form').addEventListener('submit', async e => {
         btn.textContent = 'Войти';
     }
 });
+
+// ============================================================
+// ==================== СТАТЬИ ================================
+// ============================================================
+const artState = { limit: 10, offset: 0, search: '', status: '' };
+
+function initArticlesPage() {
+    document.getElementById('btn-add-article').addEventListener('click', () => showArticleForm());
+    let t1;
+    document.getElementById('art-search').addEventListener('input', e => {
+        clearTimeout(t1);
+        t1 = setTimeout(() => { artState.search = e.target.value; artState.offset = 0; loadArticles(); }, 300);
+    });
+    document.getElementById('art-status-filter').addEventListener('change', e => {
+        artState.status = e.target.value; artState.offset = 0; loadArticles();
+    });
+}
+
+async function loadArticles() {
+    const tbody = document.getElementById('articles-table-body');
+    tbody.innerHTML = '<tr><td colspan="6" class="loading">Загрузка...</td></tr>';
+    try {
+        const data = await api.getArticles({ limit: artState.limit, offset: artState.offset, search: artState.search, status: artState.status });
+        const items = data.articles || [];
+        const meta = data.paginated_metadata || { total: 0, page: 1, total_pages: 1 };
+
+        if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Не найдено</td></tr>';
+            document.getElementById('art-pagination').innerHTML = '';
+            return;
+        }
+
+        const rows = items.map(a => {
+            const authors = (a.authors || []).map(x => x.name).join(', ');
+            const badgeClass = a.status === 'published' ? 'badge-available' : a.status === 'submitted' ? 'badge-lost' : 'badge-available';
+            const badgeText = articleStatusName(a.status);
+            return `<tr>
+                <td>${a.id}</td>
+                <td><strong>${UI.escape(a.title)}</strong><br><small class="text-muted">${UI.escape(authors)}</small></td>
+                <td>${UI.escape(a.indexing || '—')}</td>
+                <td>${UI.escape(a.white_list_level || '—')}</td>
+                <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+                <td class="actions-cell">
+                    <button class="btn btn-secondary btn-sm" data-action="view" data-id="${a.id}">👁️</button>
+                    <button class="btn btn-secondary btn-sm admin-only" data-action="edit" data-id="${a.id}" style="display:${isAdmin() ? '' : 'none'}">✏️</button>
+                    <button class="btn btn-danger btn-sm admin-only" data-action="delete" data-id="${a.id}" style="display:${isAdmin() ? '' : 'none'}">🗑️</button>
+                </td>
+            </tr>`;
+        });
+
+        tbody.innerHTML = rows.join('');
+        attachArticleActions();
+        renderArtPagination(meta.total_pages, meta.page);
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${UI.escape(err.message)}</td></tr>`;
+    }
+}
+
+function articleStatusName(s) {
+    return { planned: 'План', submitted: 'Подана', published: 'Вышла' }[s] || s;
+}
 
 // ============================================================
 // ==================== ИНВЕНТАРЬ (ОБОРУДОВАНИЕ) ==============
