@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	contextkeys "mitm-departament/internal/contextKey"
+	"mitm-departament/pkg/ratelimiter"
 	"net/http"
 	"strings"
 	"time"
@@ -24,6 +25,28 @@ const (
 	accessToken  = "access_token"
 	authHeader   = "Authorization"
 )
+
+// rateLimitMiddleware создает middleware для ограничения частоты запросов.
+func (h *Handler) rateLimitMiddleware(limiter *ratelimiter.RateLimiter) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		clientIP := c.ClientIP()
+
+		if !limiter.Allow(clientIP) {
+			h.log.Warn("rate limit exceeded",
+				zap.String("client_ip", clientIP),
+				zap.String("path", c.Request.URL.Path),
+			)
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"error":   "too_many_requests",
+				"message": "Превышен лимит запросов. Пожалуйста, подождите.",
+			})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
 
 func (s *Handler) logging() gin.HandlerFunc {
 	return func(c *gin.Context) {

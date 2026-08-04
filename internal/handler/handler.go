@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"mitm-departament/internal/config"
 	"mitm-departament/internal/models"
+	"mitm-departament/pkg/ratelimiter"
 	"net/http"
 	"strings"
 
@@ -50,11 +51,13 @@ type Handler struct {
 	photo     *InventoryPhotoHandler
 	log       *zap.Logger
 
+	rateLimiter     *ratelimiter.RateLimiter
 	frontendFS      embed.FS
 	frontendFSReady bool
 }
 
 func New(authSvc AuthService, articleSvc ArticleService, userSvc UserService, keySvc KeyService, InventorySvc InventoryService, photoSvc InventoryPhotoService, cfg *config.Config, log *zap.Logger) *Handler {
+	rateLimiter := ratelimiter.NewRateLimiter(20, 10)
 	return &Handler{
 		auth:      NewAuthHandler(authSvc, cfg.Auth, log),
 		article:   NewArticleHandler(articleSvc),
@@ -64,6 +67,8 @@ func New(authSvc AuthService, articleSvc ArticleService, userSvc UserService, ke
 		inventory: NewInventoryHandler(InventorySvc),
 		photo:     NewPhotoHandler(photoSvc, cfg.Photo),
 		log:       log,
+
+		rateLimiter: rateLimiter,
 	}
 }
 
@@ -80,6 +85,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 	router.Use(
 		gin.Recovery(),
 		h.logging(),
+		h.rateLimitMiddleware(h.rateLimiter),
 	)
 
 	// 1. Health check
