@@ -1,4 +1,7 @@
 ```gitignore
+
+Dockerfile
+
 # Dependencies
 node_modules/
 
