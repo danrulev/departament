@@ -33,16 +33,16 @@ func NewEventService(repo EventRepo, log *zap.Logger) *EventService {
 
 // validateEvent проверяет корректность данных события
 func (s *EventService) validateEvent(event *models.Event) error {
-	if event.Title == "" {
+	if event.Title == nil {
 		return errors.New("event title is required")
 	}
-	if len(event.Title) > 255 {
+	if len(*event.Title) > 255 {
 		return errors.New("event title must not exceed 255 characters")
 	}
-	if event.Location == "" {
+	if event.Location == nil {
 		return errors.New("event location is required")
 	}
-	if len(event.Location) > 500 {
+	if len(*event.Location) > 500 {
 		return errors.New("event location must not exceed 500 characters")
 	}
 	if event.Description != nil && len(*event.Description) > 5000 {
@@ -63,8 +63,10 @@ func (s *EventService) validateEvent(event *models.Event) error {
 
 // sanitizeEvent очищает входные данные от потенциально опасных символов
 func (s *EventService) sanitizeEvent(event *models.Event) {
-	event.Title = strings.TrimSpace(event.Title)
-	event.Location = strings.TrimSpace(event.Location)
+	title := strings.TrimSpace(*event.Title)
+	location := strings.TrimSpace(*event.Location)
+	event.Title = &title
+	event.Location = &location
 	if event.Description != nil {
 		cleaned := strings.TrimSpace(*event.Description)
 		event.Description = &cleaned
@@ -78,7 +80,7 @@ func (s *EventService) CreateEvent(ctx context.Context, event models.Event) (int
 	// Валидация
 	if err := s.validateEvent(&event); err != nil {
 		s.log.Warn("invalid event data",
-			zap.String("title", event.Title),
+			zap.String("title", *event.Title),
 			zap.String("creator_id", event.CreatorID),
 			zap.Error(err),
 		)
@@ -88,7 +90,7 @@ func (s *EventService) CreateEvent(ctx context.Context, event models.Event) (int
 	id, err := s.repo.CreateEvent(ctx, event)
 	if err != nil {
 		s.log.Error("failed to create event",
-			zap.String("title", event.Title),
+			zap.String("title", *event.Title),
 			zap.String("creator_id", event.CreatorID),
 			zap.Error(err),
 		)
@@ -97,7 +99,7 @@ func (s *EventService) CreateEvent(ctx context.Context, event models.Event) (int
 
 	s.log.Info("event created",
 		zap.Int64("id", id),
-		zap.String("title", event.Title),
+		zap.String("title", *event.Title),
 		zap.String("creator_id", event.CreatorID),
 	)
 	return id, nil
@@ -168,7 +170,7 @@ func (s *EventService) EventsList(ctx context.Context, f models.EventFilter) (mo
 }
 
 // validateUpdateEvent проверяет данные для обновления
-func (s *EventService) validateUpdateEvent(u *models.Event) error {
+func (s *EventService) validateUpdateEvent(u *models.UpdateEvent) error {
 	if u.Title != nil && *u.Title == "" {
 		return errors.New("event title cannot be empty")
 	}
@@ -190,7 +192,7 @@ func (s *EventService) validateUpdateEvent(u *models.Event) error {
 	return nil
 }
 
-func (s *EventService) UpdateEvent(ctx context.Context, id int64, u *models.Event) error {
+func (s *EventService) UpdateEvent(ctx context.Context, id int64, u *models.UpdateEvent) error {
 	if id <= 0 {
 		return errors.New("invalid event ID")
 	}
@@ -227,10 +229,9 @@ func (s *EventService) UpdateEvent(ctx context.Context, id int64, u *models.Even
 		return fmt.Errorf("event %d not found", id)
 	}
 
-	// Устанавливаем ID для обновления
-	u.ID = id
+	var user models.Event
 
-	if err := s.repo.UpdateEvent(ctx, u, id); err != nil {
+	if err := s.repo.UpdateEvent(ctx, &user, id); err != nil {
 		s.log.Error("failed to update event",
 			zap.Int64("id", id),
 			zap.Error(err),
