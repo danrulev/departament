@@ -30,6 +30,6 @@ type EventFilter struct {
 }
 
 type EventList struct {
-	Events            []Event
-	PaginatedMetadata PaginatedMetadata
+	Events            []Event           `json:"events"`
+	PaginatedMetadata PaginatedMetadata `json:"paginated_metadata"`
 }
