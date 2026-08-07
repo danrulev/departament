@@ -49,6 +49,7 @@ type Handler struct {
 	key       *KeyHandler
 	inventory *InventoryHandler
 	photo     *InventoryPhotoHandler
+	event     *EventHandler
 	log       *zap.Logger
 
 	rateLimiter     *ratelimiter.RateLimiter
@@ -56,7 +57,7 @@ type Handler struct {
 	frontendFSReady bool
 }
 
-func New(authSvc AuthService, articleSvc ArticleService, userSvc UserService, keySvc KeyService, InventorySvc InventoryService, photoSvc InventoryPhotoService, cfg *config.Config, log *zap.Logger) *Handler {
+func New(authSvc AuthService, articleSvc ArticleService, userSvc UserService, keySvc KeyService, InventorySvc InventoryService, photoSvc InventoryPhotoService, eventSvc EventService, cfg *config.Config, log *zap.Logger) *Handler {
 	rateLimiter := ratelimiter.NewRateLimiter(20, 10)
 	return &Handler{
 		auth:      NewAuthHandler(authSvc, cfg.Auth, log),
@@ -66,6 +67,7 @@ func New(authSvc AuthService, articleSvc ArticleService, userSvc UserService, ke
 		key:       NewKeyHandler(keySvc),
 		inventory: NewInventoryHandler(InventorySvc),
 		photo:     NewPhotoHandler(photoSvc, cfg.Photo),
+		event:     NewEventHandler(eventSvc),
 		log:       log,
 
 		rateLimiter: rateLimiter,
@@ -111,6 +113,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		h.inventory.RegisterRoutes(protected)
 		h.photo.RegisterRoutes(protected)
 		h.user.RegisterRoutes(protected)
+		h.event.RegisterRoutes(protected)
 	}
 
 	// 3. Раздача фронтенда (SPA)
