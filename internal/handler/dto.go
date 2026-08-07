@@ -251,10 +251,10 @@ type ArticleResponse struct {
 // ========== Events ==========
 type CreateEventRequest struct {
 	CreatorID   string  `json:"creator_id" binding:"omitempty,uuid"`
-	Title       string  `json:"title" binding:"required,min=1,max=255"`
-	Location    string  `json:"location" binding:"required,min=1,max=500"`
+	Title       *string `json:"title" binding:"required,min=1,max=255"`
+	Location    *string `json:"location" binding:"required,min=1,max=500"`
 	Description *string `json:"description" binding:"omitempty,max=5000"`
-	StartTime   string  `json:"start_time" binding:"required"`
+	StartTime   *string `json:"start_time" binding:"required"`
 }
 
 type UpdateEventRequest struct {

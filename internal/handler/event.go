@@ -14,7 +14,7 @@ type EventService interface {
 	CreateEvent(ctx context.Context, event models.Event) (int64, error)
 	Event(ctx context.Context, id int64) (*models.Event, error)
 	EventsList(ctx context.Context, f models.EventFilter) (models.EventList, error)
-	UpdateEvent(ctx context.Context, id int64, u *models.Event) error
+	UpdateEvent(ctx context.Context, id int64, u *models.UpdateEvent) error
 	DeleteEvent(ctx context.Context, id int64) error
 }
 
@@ -76,8 +76,8 @@ func ToEventResponse(e *models.Event) EventResponse {
 	resp := EventResponse{
 		ID:          e.ID,
 		CreatorID:   e.CreatorID,
-		Title:       e.Title,
-		Location:    e.Location,
+		Title:       *e.Title,
+		Location:    *e.Location,
 		Description: e.Description,
 		StartTime:   e.StartTime.Format("2006-01-02 15:04:05"),
 		CreatedAt:   e.CreatedAt.Format("2006-01-02 15:04:05"),
@@ -108,7 +108,7 @@ func (h *EventHandler) create(c *gin.Context) {
 		return
 	}
 
-	startTime, err := parseDateTime(&req.StartTime)
+	startTime, err := parseDateTime(req.StartTime)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "неверный формат времени начала (ожидается YYYY-MM-DDTHH:MM или YYYY-MM-DD HH:MM)"})
 		return
@@ -119,7 +119,7 @@ func (h *EventHandler) create(c *gin.Context) {
 		Title:       req.Title,
 		Location:    req.Location,
 		Description: req.Description,
-		StartTime:   *startTime,
+		StartTime:   startTime,
 	}
 
 	id, err := h.svc.CreateEvent(c.Request.Context(), event)
@@ -195,13 +195,13 @@ func (h *EventHandler) update(c *gin.Context) {
 		return
 	}
 
-	updateData := &models.Event{}
+	updateData := &models.UpdateEvent{}
 
 	if req.Title != nil {
-		updateData.Title = *req.Title
+		updateData.Title = req.Title
 	}
 	if req.Location != nil {
-		updateData.Location = *req.Location
+		updateData.Location = req.Location
 	}
 	if req.Description != nil {
 		updateData.Description = req.Description
@@ -212,7 +212,7 @@ func (h *EventHandler) update(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "неверный формат времени начала (ожидается YYYY-MM-DDTHH:MM или YYYY-MM-DD HH:MM)"})
 			return
 		}
-		updateData.StartTime = *startTime
+		updateData.StartTime = startTime
 	}
 
 	if err := h.svc.UpdateEvent(c.Request.Context(), id, updateData); err != nil {
