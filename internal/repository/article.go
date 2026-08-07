@@ -8,14 +8,16 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"go.uber.org/zap"
 )
 
 type ArticleRepo struct {
-	db *sqlx.DB
+	db  *sqlx.DB
+	log *zap.Logger
 }
 
-func NewArticleRepo(db *sqlx.DB) *ArticleRepo {
-	return &ArticleRepo{db: db}
+func NewArticleRepo(db *sqlx.DB, log *zap.Logger) *ArticleRepo {
+	return &ArticleRepo{db: db, log: log}
 }
 
 const articleCols = `id, title, details, indexing, white_list_level, funding, link, status, created_by, created_at, updated_at`

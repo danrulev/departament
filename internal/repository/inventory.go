@@ -167,7 +167,7 @@ func (r *InventoryRepo) Update(ctx context.Context, e *models.Inventory) error {
 			last_verification_date = :last_verification_date,
 			next_verification_date = :next_verification_date,
 			updated_at = CURRENT_TIMESTAMP
-		 WHERE id = :id`, e)
+		WHERE id = :id`, e)
 	if err != nil {
 		return fmt.Errorf("update inventory: %w", err)
 	}

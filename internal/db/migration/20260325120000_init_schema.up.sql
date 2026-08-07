@@ -110,3 +110,17 @@ CREATE TABLE IF NOT EXISTS article_authors (
 
 CREATE INDEX IF NOT EXISTS idx_article_authors_article ON article_authors(article_id);
 CREATE INDEX IF NOT EXISTS idx_articles_status ON articles(status);
+
+CREATE TABLE IF NOT EXISTS events(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    creator_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    location TEXT NOT NULL,
+    description TEXT,
+    start_time TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_events_creator ON events(creator_id);
+CREATE INDEX IF NOT EXISTS idx_events_start_time ON events(start_time);

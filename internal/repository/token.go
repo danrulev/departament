@@ -9,19 +9,19 @@ import (
 	"go.uber.org/zap"
 )
 
-type TokenR struct {
+type TokenRepo struct {
 	db  *sqlx.DB
 	log *zap.Logger
 }
 
-func NewTokenRepository(db *sqlx.DB, log *zap.Logger) *TokenR {
-	return &TokenR{
+func NewTokenRepository(db *sqlx.DB, log *zap.Logger) *TokenRepo {
+	return &TokenRepo{
 		db:  db,
 		log: log,
 	}
 }
 
-func (t *TokenR) CreateToken(ctx context.Context, token models.Token) error {
+func (t *TokenRepo) CreateToken(ctx context.Context, token models.Token) error {
 	query := `INSERT INTO tokens (user_id, token_id, role, expired_at) VALUES (?, ?, ?, ?)`
 
 	_, err := t.db.ExecContext(ctx, query, token.UserID, token.TokenID, token.Role, token.ExpiresAt)
@@ -37,7 +37,7 @@ func (t *TokenR) CreateToken(ctx context.Context, token models.Token) error {
 	return nil
 }
 
-func (t *TokenR) Token(ctx context.Context, tokenID string) (models.Token, error) {
+func (t *TokenRepo) Token(ctx context.Context, tokenID string) (models.Token, error) {
 	query := `SELECT user_id, token_id, role, expired_at FROM tokens WHERE token_id=?`
 
 	row := t.db.QueryRowContext(ctx, query, tokenID)
@@ -62,7 +62,7 @@ func (t *TokenR) Token(ctx context.Context, tokenID string) (models.Token, error
 	return token, nil
 }
 
-func (t *TokenR) DeleteToken(ctx context.Context, tokenID string) error {
+func (t *TokenRepo) DeleteToken(ctx context.Context, tokenID string) error {
 	query := `DELETE FROM tokens WHERE token_id=?`
 
 	result, err := t.db.ExecContext(ctx, query, tokenID)

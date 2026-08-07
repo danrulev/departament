@@ -7,17 +7,19 @@ import (
 
 type Repository struct {
 	Article   *ArticleRepo
+	Event     *EventRepo
 	User      *UserRepo
 	Key       *KeyRepo
 	KeyLog    *KeyLogRepo
 	Equipment *InventoryRepo
 	Photo     *PhotoRepo
-	Token     *TokenR
+	Token     *TokenRepo
 }
 
 func New(db *sqlx.DB, log *zap.Logger) *Repository {
 	return &Repository{
-		Article:   NewArticleRepo(db),
+		Article:   NewArticleRepo(db, log),
+		Event:     NewEventRepository(db, log),
 		User:      NewUserRepo(db, log),
 		Key:       NewKeyRepo(db, log),
 		KeyLog:    NewKeyLogRepo(db, log),
