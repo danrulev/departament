@@ -20,6 +20,7 @@ type Service struct {
 	Key       *KeyService
 	Equipment *EquipmentService
 	Photo     *PhotoService
+	Event     *EventService
 }
 
 func New(
@@ -32,6 +33,7 @@ func New(
 	keyLogRepo KeyLogRepo,
 	equipmentRepo EquipmentRepo,
 	photo PhotoRepo,
+	eventRepo EventRepo,
 
 	cfg *config.Config,
 
@@ -45,5 +47,6 @@ func New(
 		Key:       NewKeyService(keyRepo, keyLogRepo, db, log),
 		Equipment: NewEquipmentService(equipmentRepo, log),
 		Photo:     NewPhotoService(photo, equipmentRepo, cfg.Photo, log),
+		Event:     NewEventService(eventRepo, log),
 	}
 }

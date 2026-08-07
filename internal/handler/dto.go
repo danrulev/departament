@@ -247,3 +247,30 @@ type ArticleResponse struct {
 	CreatedAt      string                  `json:"created_at"`
 	UpdatedAt      string                  `json:"updated_at"`
 }
+
+// ========== Events ==========
+type CreateEventRequest struct {
+	CreatorID   string  `json:"creator_id" binding:"omitempty,uuid"`
+	Title       string  `json:"title" binding:"required,min=1,max=255"`
+	Location    string  `json:"location" binding:"required,min=1,max=500"`
+	Description *string `json:"description" binding:"omitempty,max=5000"`
+	StartTime   string  `json:"start_time" binding:"required"`
+}
+
+type UpdateEventRequest struct {
+	Title       *string `json:"title" binding:"omitempty,min=1,max=255"`
+	Location    *string `json:"location" binding:"omitempty,min=1,max=500"`
+	Description *string `json:"description" binding:"omitempty,max=5000"`
+	StartTime   *string `json:"start_time"`
+}
+
+type EventResponse struct {
+	ID          int64   `json:"id"`
+	CreatorID   string  `json:"creator_id"`
+	Title       string  `json:"title"`
+	Location    string  `json:"location"`
+	Description *string `json:"description,omitempty"`
+	StartTime   string  `json:"start_time"`
+	CreatedAt   string  `json:"created_at"`
+	UpdatedAt   string  `json:"updated_at"`
+}
