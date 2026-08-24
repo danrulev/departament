@@ -71,21 +71,15 @@ func (r *UserRepo) List(ctx context.Context) ([]models.User, error) {
 	return users, nil
 }
 
-// ListActive возвращает всех активных пользователей
-// Если roleFilter не пустой, фильтрует по роли (например, "staff" для сотрудников)
+// ListActive возвращает всех активных пользователей кроме студентов
 func (r *UserRepo) ListActive(ctx context.Context, roleFilter string) ([]models.User, error) {
 	var users []models.User
 	var err error
 	
-	if roleFilter != "" {
-		err = r.db.SelectContext(ctx, &users,
-			`SELECT id, full_name, role, phone, email, is_active, created_at
-			 FROM users WHERE is_active = 1 AND role = ? ORDER BY full_name`, roleFilter)
-	} else {
-		err = r.db.SelectContext(ctx, &users,
-			`SELECT id, full_name, role, phone, email, is_active, created_at
-			 FROM users WHERE is_active = 1 ORDER BY full_name`)
-	}
+	// Игнорируем roleFilter, всегда возвращаем всех активных кроме студентов
+	err = r.db.SelectContext(ctx, &users,
+		`SELECT id, full_name, role, phone, email, is_active, created_at
+		 FROM users WHERE is_active = 1 AND role != 'student' ORDER BY full_name`)
 	
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)

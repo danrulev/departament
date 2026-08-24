@@ -92,9 +92,8 @@ func (h *UserHandler) GetByID(c *gin.Context) {
 }
 
 func (h *UserHandler) ListActive(c *gin.Context) {
-	roleFilter := c.Query("role")
-	
-	users, err := h.userSvc.ListActive(c.Request.Context(), roleFilter)
+	// Игнорируем параметр role, всегда возвращаем всех активных кроме студентов
+	users, err := h.userSvc.ListActive(c.Request.Context(), "")
 	if err != nil {
 		handleError(c, err)
 		return
