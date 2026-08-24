@@ -1209,9 +1209,13 @@ async function showUserForm(id = null) {
         dobValue = d.toISOString().split('T')[0];
     }
     
-    const avatarBlock = id ? `<div class="form-group"><label>Аватар</label><div class="avatar-editor"><div class="avatar-preview" id="avatar-preview"></div><div class="avatar-controls">
+    const avatarBlock = id 
+        ? `<div class="form-group"><label>Аватар</label><div class="avatar-editor"><div class="avatar-preview" id="avatar-preview"></div><div class="avatar-controls">
         <label class="btn btn-secondary btn-sm" style="cursor:pointer;">📷 Загрузить<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none" onchange="uploadUserAvatarFromFile('${id}', this)"></label>
-        <button type="button" class="btn btn-danger btn-sm" onclick="deleteUserAvatarFromForm('${id}')">Удалить</button></div></div></div>` : `<div class="form-group"><label>Аватар</label><small class="text-muted">Можно добавить после создания пользователя</small></div>`;
+        <button type="button" class="btn btn-danger btn-sm" onclick="deleteUserAvatarFromForm('${id}')">Удалить</button></div></div></div>`
+        : `<div class="form-group"><label>Аватар</label><div class="avatar-editor"><div class="avatar-preview" id="avatar-preview-new"><span class="avatar-placeholder">Нет фото</span></div><div class="avatar-controls">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;">📷 Загрузить<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none" id="avatar-file-new" onchange="previewNewUserAvatar(this)"></label>
+        </div></div><small class="text-muted">Фото будет загружено после создания пользователя</small></div>`;
 
     UI.openModal(id ? 'Редактировать пользователя' : 'Новый пользователь', `<form id="user-form">
         <div class="form-group"><label>ФИО <span class="required">*</span></label><input type="text" class="input" name="full_name" value="${UI.escape(user.full_name)}" required minlength="3"></div>
@@ -1260,7 +1264,15 @@ async function showUserForm(id = null) {
         if (!id) { const pwd = fd.get('password'); if (pwd) data.password = pwd; }
         try {
             if (id) { await api.updateUser(id, data); UI.toast('Обновлён', 'success'); }
-            else { await api.createUser(data); UI.toast('Создан', 'success'); }
+            else { 
+                const newUser = await api.createUser(data); 
+                // Если выбрано фото для нового пользователя, загружаем его
+                const avatarFileInput = document.getElementById('avatar-file-new');
+                if (avatarFileInput && avatarFileInput.files && avatarFileInput.files[0]) {
+                    await uploadUserAvatarFromFile(newUser.id, avatarFileInput);
+                }
+                UI.toast('Создан', 'success'); 
+            }
             UI.closeModal();
             if (window.location.hash === '#/profile') { renderProfilePage(); renderHeaderUser(); }
             else loadUsers();
@@ -1300,7 +1312,8 @@ window.uploadUserAvatarFromFile = async function(userId, input) {
 
         const freshUrl = api.avatarUrl(userId) + '?v=' + Date.now();
 
-        const container = document.getElementById('avatar-preview');
+        // Обновляем превью в модалке редактирования или после создания
+        const container = document.getElementById('avatar-preview') || document.getElementById('avatar-preview-new');
         if (container) {
             container.innerHTML = `<img src="${freshUrl}" alt="">`;
             const img = container.querySelector('img');
@@ -1325,6 +1338,21 @@ window.uploadUserAvatarFromFile = async function(userId, input) {
     } finally { 
         input.value = ''; 
     }
+};
+
+// Превью фото для нового пользователя перед загрузкой
+window.previewNewUserAvatar = function(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    const previewContainer = document.getElementById('avatar-preview-new');
+    if (!previewContainer) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        previewContainer.innerHTML = `<img src="${e.target.result}" alt="Preview" style="width:100px;height:100px;border-radius:50%;object-fit:cover;">`;
+    };
+    reader.readAsDataURL(file);
 };
 
 window.deleteUserAvatarFromForm = async function(userId) {
