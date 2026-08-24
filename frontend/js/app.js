@@ -488,8 +488,8 @@ async function showInventoryForm(id = null) {
             if (inv.next_verification_date) inv.next_verification_date = inv.next_verification_date.substring(0, 10);
         } catch (err) { UI.toast(err.message, 'error'); return; }
     }
-    // Загружаем только активных сотрудников (не студентов) для выбора ответственного
-    let users = []; try { users = await api.getActiveUsers('staff'); } catch {}
+    // Загружаем только активных пользователей (кроме студентов) для выбора ответственного
+    let users = []; try { users = await api.getActiveUsers(); } catch {}
     const opts = users.map(u => `<option value="${u.id}" ${inv.responsible_id === u.id ? 'selected' : ''}>${UI.escape(u.full_name)}</option>`).join('');
     const types = ['equipment', 'inventory', 'raw_material', 'other'];
     const typeLabels = { equipment: 'Оборудование', inventory: 'Инвентарь', raw_material: 'Сырьё', other: 'Другое' };

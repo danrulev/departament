@@ -1,27 +1,15 @@
 ```
-# Dependencies
-go.mod
-go.sum
-
 # Compiled and build artifacts
 *.o
 *.obj
-*.a
-*.so
-*.dll
-*.exe
 *.out
 
-# Go specific
-bin/
-pkg/
-*.test
-*.prof
+# Dependencies
+vendor/
 
 # Logs and temp files
 *.log
 *.tmp
-*.swp
 
 # Environment
 .env
@@ -32,12 +20,6 @@ pkg/
 .vscode/
 .idea/
 
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# Build artifacts from frontend
-frontend/dist/
-frontend/build/
+# Go-specific
+*.syso
 ```

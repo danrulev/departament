@@ -79,8 +79,7 @@ func (s *UserService) GetByID(ctx context.Context, id string) (*models.User, err
 	return u, nil
 }
 
-// ListActive возвращает всех активных пользователей
-// Если roleFilter не пустой, фильтрует по роли (например, "staff" для сотрудников)
+// ListActive возвращает всех активных пользователей кроме студентов
 func (s *UserService) ListActive(ctx context.Context, roleFilter string) ([]models.User, error) {
 	users, err := s.repo.ListActive(ctx, roleFilter)
 	if err != nil {
