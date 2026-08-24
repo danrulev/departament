@@ -121,6 +121,7 @@ class ApiClient {
 
     // ─── Users ───
     getUsers()           { return this.request('/users'); }
+    getActiveUsers()     { return this.request('/users/active'); }
     getUser(id)          { return this.request(`/users/${id}`); }
     createUser(data)     { return this.request('/users', { method: 'POST', body: JSON.stringify(data) }); }
     updateUser(id, data) { return this.request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }

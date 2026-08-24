@@ -30,11 +30,12 @@ func (h *UserHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	users := rg.Group("/users")
 	{
 		users.POST("", h.Create, requireRoles(adminKey))
-		users.GET("", h.ListAll) // Изменено: возвращает всех пользователей (активных и неактивных)
+		users.GET("", h.ListAll) // возвращает всех пользователей (активных и неактивных)
+		users.GET("/active", h.ListActive) // возвращает только активных пользователей
 		users.GET("/:id", h.GetByID)
 		users.PUT("/:id", h.Update, requireRoles(adminKey))
 		users.DELETE("/:id", h.Deactivate, requireRoles(adminKey))
-		users.POST("/:id/activate", h.Activate, requireRoles(adminKey)) // Новый эндпоинт для активации
+		users.POST("/:id/activate", h.Activate, requireRoles(adminKey))
 		users.GET("/:id/history", h.History)
 		users.POST("/:id/avatar", h.UploadAvatar, requireRoles(adminKey))
 		users.DELETE("/:id/avatar", h.DeleteAvatar, requireRoles(adminKey))
