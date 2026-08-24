@@ -1,6 +1,9 @@
 package handler
 
-import "mitm-departament/internal/models"
+import (
+	"mitm-departament/internal/models"
+	"time"
+)
 
 // ========== Users ==========
 

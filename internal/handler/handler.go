@@ -19,9 +19,11 @@ type UserService interface {
 	Create(ctx context.Context, u *models.User) error
 	GetByID(ctx context.Context, id string) (*models.User, error)
 	ListActive(ctx context.Context) ([]models.User, error)
+	ListAll(ctx context.Context) ([]models.User, error)
 	SetAvatar(ctx context.Context, userID string, file multipart.File, header *multipart.FileHeader, ext string) error
 	DeleteAvatar(ctx context.Context, userID string) error
 	Update(ctx context.Context, u *models.User) error
+	Activate(ctx context.Context, id string) error
 	Deactivate(ctx context.Context, id string) error
 }
 
