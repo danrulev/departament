@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS events(
     location TEXT NOT NULL,
     description TEXT,
     start_time TIMESTAMP NOT NULL,
+    is_public BOOLEAN DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
