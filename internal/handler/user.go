@@ -92,7 +92,9 @@ func (h *UserHandler) GetByID(c *gin.Context) {
 }
 
 func (h *UserHandler) ListActive(c *gin.Context) {
-	users, err := h.userSvc.ListActive(c.Request.Context())
+	roleFilter := c.Query("role")
+	
+	users, err := h.userSvc.ListActive(c.Request.Context(), roleFilter)
 	if err != nil {
 		handleError(c, err)
 		return
