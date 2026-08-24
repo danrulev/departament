@@ -6,6 +6,7 @@ import (
 	"mitm-departament/internal/models"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -29,13 +30,14 @@ func (h *UserHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	users := rg.Group("/users")
 	{
 		users.POST("", h.Create, requireRoles(adminKey))
-		users.GET("", h.ListActive)
+		users.GET("", h.ListAll) // Изменено: возвращает всех пользователей (активных и неактивных)
 		users.GET("/:id", h.GetByID)
 		users.PUT("/:id", h.Update, requireRoles(adminKey))
 		users.DELETE("/:id", h.Deactivate, requireRoles(adminKey))
+		users.POST("/:id/activate", h.Activate, requireRoles(adminKey)) // Новый эндпоинт для активации
 		users.GET("/:id/history", h.History)
-		users.POST("/:id/avatar", h.UploadAvatar, requireRoles(adminKey))   // ← новое
-		users.DELETE("/:id/avatar", h.DeleteAvatar, requireRoles(adminKey)) // ← новое
+		users.POST("/:id/avatar", h.UploadAvatar, requireRoles(adminKey))
+		users.DELETE("/:id/avatar", h.DeleteAvatar, requireRoles(adminKey))
 	}
 }
 
@@ -56,6 +58,17 @@ func (h *UserHandler) Create(c *gin.Context) {
 		Email:    req.Email,
 		IsActive: true,
 	}
+
+	// Парсим дату рождения если указана
+	if req.DateOfBirth != nil && *req.DateOfBirth != "" {
+		dob, err := time.Parse("2006-01-02", *req.DateOfBirth)
+		if err == nil {
+			user.DateOfBirth = &dob
+		}
+	}
+
+	// Устанавливаем кабинет если указан
+	user.Office = req.Office
 
 	if err := h.userSvc.Create(c.Request.Context(), user); err != nil {
 		handleError(c, err)
@@ -92,6 +105,34 @@ func (h *UserHandler) ListActive(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+// ListAll возвращает всех пользователей (активных и неактивных)
+func (h *UserHandler) ListAll(c *gin.Context) {
+	users, err := h.userSvc.ListAll(c.Request.Context())
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	resp := make([]UserResponse, 0, len(users))
+	for i := range users {
+		resp = append(resp, ToUserResponse(&users[i]))
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+// Activate активирует пользователя
+func (h *UserHandler) Activate(c *gin.Context) {
+	id := c.Param("id")
+
+	if err := h.userSvc.Activate(c.Request.Context(), id); err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, MessageResponse{Message: "пользователь активирован"})
+}
+
 func (h *UserHandler) Update(c *gin.Context) {
 	id := c.Param("id")
 
@@ -118,6 +159,19 @@ func (h *UserHandler) Update(c *gin.Context) {
 	if req.Avatar != nil {
 		user.Avatar = req.Avatar
 	}
+
+	// Обновляем дату рождения если указана
+	if req.DateOfBirth != nil && *req.DateOfBirth != "" {
+		dob, err := time.Parse("2006-01-02", *req.DateOfBirth)
+		if err == nil {
+			user.DateOfBirth = &dob
+		}
+	} else if req.DateOfBirth != nil {
+		user.DateOfBirth = nil
+	}
+
+	// Обновляем кабинет
+	user.Office = req.Office
 
 	if err := h.userSvc.Update(c.Request.Context(), user); err != nil {
 		handleError(c, err)

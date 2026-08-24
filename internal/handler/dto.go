@@ -5,23 +5,27 @@ import "mitm-departament/internal/models"
 // ========== Users ==========
 
 type CreateUserRequest struct {
-	Avatar   *string `json:"avatar"`
-	FullName string  `json:"full_name" binding:"required,min=3"`
-	Password string  `json:"password" binding:"omitempty,min=8"`
-	Role     string  `json:"role" binding:"required,oneof=student teacher staff admin"`
-	Position *string `json:"position"`
-	Phone    *string `json:"phone"`
-	Email    *string `json:"email" binding:"omitempty,email"`
+	Avatar      *string `json:"avatar"`
+	FullName    string  `json:"full_name" binding:"required,min=3"`
+	Password    string  `json:"password" binding:"omitempty,min=8"`
+	Role        string  `json:"role" binding:"required,oneof=student teacher staff admin"`
+	Position    *string `json:"position"`
+	Phone       *string `json:"phone"`
+	Email       *string `json:"email" binding:"omitempty,email"`
+	DateOfBirth *string `json:"date_of_birth"` // формат YYYY-MM-DD
+	Office      *string `json:"office"`
 }
 
 type UpdateUserRequest struct {
-	Avatar   *string `json:"avatar"`
-	FullName string  `json:"full_name" binding:"required,min=3"`
-	Role     string  `json:"role" binding:"required,oneof=student teacher staff admin"`
-	Position *string `json:"position"`
-	Phone    *string `json:"phone"`
-	Email    *string `json:"email" binding:"omitempty,email"`
-	IsActive *bool   `json:"is_active"`
+	Avatar      *string `json:"avatar"`
+	FullName    string  `json:"full_name" binding:"required,min=3"`
+	Role        string  `json:"role" binding:"required,oneof=student teacher staff admin"`
+	Position    *string `json:"position"`
+	Phone       *string `json:"phone"`
+	Email       *string `json:"email" binding:"omitempty,email"`
+	DateOfBirth *string `json:"date_of_birth"` // формат YYYY-MM-DD
+	Office      *string `json:"office"`
+	IsActive    *bool   `json:"is_active"`
 }
 
 type UserSignIn struct {
@@ -30,15 +34,17 @@ type UserSignIn struct {
 }
 
 type UserResponse struct {
-	ID        string  `json:"id"`
-	Avatar    *string `json:"avatar"`
-	FullName  string  `json:"full_name"`
-	Role      string  `json:"role"`
-	Position  *string `json:"position"`
-	Phone     *string `json:"phone,omitempty"`
-	Email     *string `json:"email,omitempty"`
-	IsActive  bool    `json:"is_active"`
-	CreatedAt string  `json:"created_at"`
+	ID          string     `json:"id"`
+	Avatar      *string    `json:"avatar"`
+	FullName    string     `json:"full_name"`
+	Role        string     `json:"role"`
+	Position    *string    `json:"position"`
+	Phone       *string    `json:"phone,omitempty"`
+	Email       *string    `json:"email,omitempty"`
+	DateOfBirth *time.Time `json:"date_of_birth,omitempty"`
+	Office      *string    `json:"office,omitempty"`
+	IsActive    bool       `json:"is_active"`
+	CreatedAt   string     `json:"created_at"`
 }
 
 func ToUserResponse(u *models.User) UserResponse {
@@ -49,15 +55,17 @@ func ToUserResponse(u *models.User) UserResponse {
 	}
 
 	return UserResponse{
-		ID:        u.ID,
-		Avatar:    avatar,
-		FullName:  u.FullName,
-		Role:      u.Role,
-		Position:  u.Position,
-		Phone:     u.Phone,
-		Email:     u.Email,
-		IsActive:  u.IsActive,
-		CreatedAt: u.CreatedAt.Format("2006-01-02 15:04:05"),
+		ID:          u.ID,
+		Avatar:      avatar,
+		FullName:    u.FullName,
+		Role:        u.Role,
+		Position:    u.Position,
+		Phone:       u.Phone,
+		Email:       u.Email,
+		DateOfBirth: u.DateOfBirth,
+		Office:      u.Office,
+		IsActive:    u.IsActive,
+		CreatedAt:   u.CreatedAt.Format("2006-01-02 15:04:05"),
 	}
 }
 
