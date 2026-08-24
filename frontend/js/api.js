@@ -121,7 +121,12 @@ class ApiClient {
 
     // ─── Users ───
     getUsers()           { return this.request('/users'); }
-    getActiveUsers()     { return this.request('/users/active'); }
+    getActiveUsers(role = null) {
+        const q = new URLSearchParams();
+        if (role) q.append('role', role);
+        const qs = q.toString();
+        return this.request(`/users/active${qs ? '?' + qs : ''}`);
+    }
     getUser(id)          { return this.request(`/users/${id}`); }
     createUser(data)     { return this.request('/users', { method: 'POST', body: JSON.stringify(data) }); }
     updateUser(id, data) { return this.request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }

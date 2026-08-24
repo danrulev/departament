@@ -18,7 +18,7 @@ import (
 type UserRepo interface {
 	Create(ctx context.Context, u *models.User) error
 	GetByID(ctx context.Context, id string) (*models.User, error)
-	ListActive(ctx context.Context) ([]models.User, error)
+	ListActive(ctx context.Context, roleFilter string) ([]models.User, error)
 	ListAll(ctx context.Context) ([]models.User, error)
 	SetAvatar(ctx context.Context, userID, filename string) error
 	Update(ctx context.Context, u *models.User) error
@@ -80,8 +80,9 @@ func (s *UserService) GetByID(ctx context.Context, id string) (*models.User, err
 }
 
 // ListActive возвращает всех активных пользователей
-func (s *UserService) ListActive(ctx context.Context) ([]models.User, error) {
-	users, err := s.repo.ListActive(ctx)
+// Если roleFilter не пустой, фильтрует по роли (например, "staff" для сотрудников)
+func (s *UserService) ListActive(ctx context.Context, roleFilter string) ([]models.User, error) {
+	users, err := s.repo.ListActive(ctx, roleFilter)
 	if err != nil {
 		return nil, fmt.Errorf("list active users: %w", err)
 	}
