@@ -83,6 +83,18 @@ func (r *UserRepo) ListActive(ctx context.Context) ([]models.User, error) {
 	return users, nil
 }
 
+// ListAll возвращает всех пользователей (активных и неактивных)
+func (r *UserRepo) ListAll(ctx context.Context) ([]models.User, error) {
+	var users []models.User
+	err := r.db.SelectContext(ctx, &users,
+		`SELECT id, full_name, role, phone, email, date_of_birth, office, is_active, created_at
+		 FROM users ORDER BY full_name`)
+	if err != nil {
+		return nil, fmt.Errorf("list all users: %w", err)
+	}
+	return users, nil
+}
+
 func (r *UserRepo) GetByName(ctx context.Context, name string) ([]models.User, error) {
 	var users []models.User
 	searchPattern := "%" + name + "%"

@@ -19,6 +19,7 @@ type UserRepo interface {
 	Create(ctx context.Context, u *models.User) error
 	GetByID(ctx context.Context, id string) (*models.User, error)
 	ListActive(ctx context.Context) ([]models.User, error)
+	ListAll(ctx context.Context) ([]models.User, error)
 	SetAvatar(ctx context.Context, userID, filename string) error
 	Update(ctx context.Context, u *models.User) error
 }
@@ -87,6 +88,37 @@ func (s *UserService) ListActive(ctx context.Context) ([]models.User, error) {
 	return users, nil
 }
 
+// ListAll возвращает всех пользователей (активных и неактивных)
+func (s *UserService) ListAll(ctx context.Context) ([]models.User, error) {
+	users, err := s.repo.ListAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list all users: %w", err)
+	}
+	return users, nil
+}
+
+// Activate активирует пользователя
+func (s *UserService) Activate(ctx context.Context, id string) error {
+	u, err := s.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	u.IsActive = true
+	return s.Update(ctx, u)
+}
+
+// Deactivate деактивирует пользователя (уволился/выпустился)
+func (s *UserService) Deactivate(ctx context.Context, id string) error {
+	u, err := s.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	u.IsActive = false
+	return s.Update(ctx, u)
+}
+
 // Update обновляет данные пользователя
 func (s *UserService) Update(ctx context.Context, u *models.User) error {
 	if u.ID == "" {
@@ -103,17 +135,6 @@ func (s *UserService) Update(ctx context.Context, u *models.User) error {
 
 	s.log.Info("user updated", zap.String("user_id", u.ID))
 	return nil
-}
-
-// Deactivate деактивирует пользователя (уволился/выпустился)
-func (s *UserService) Deactivate(ctx context.Context, id string) error {
-	u, err := s.GetByID(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	u.IsActive = false
-	return s.Update(ctx, u)
 }
 
 func (s *UserService) SetAvatar(ctx context.Context, userID string, file multipart.File, header *multipart.FileHeader, ext string) error {
