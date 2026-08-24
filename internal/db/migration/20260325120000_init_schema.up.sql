@@ -127,3 +127,4 @@ CREATE TABLE IF NOT EXISTS events(
 
 CREATE INDEX IF NOT EXISTS idx_events_creator ON events(creator_id);
 CREATE INDEX IF NOT EXISTS idx_events_start_time ON events(start_time);
+CREATE INDEX IF NOT EXISTS idx_events_is_public ON events(is_public);
