@@ -70,7 +70,7 @@ func New(authSvc AuthService, articleSvc ArticleService, userSvc UserService, ke
 		key:       NewKeyHandler(keySvc),
 		inventory: NewInventoryHandler(InventorySvc),
 		photo:     NewPhotoHandler(photoSvc, cfg.Photo),
-		event:     NewEventHandler(eventSvc),
+		event:     NewEventHandler(eventSvc, userSvc),
 		userSvc:   userSvc,
 		log:       log,
 

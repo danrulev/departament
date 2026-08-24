@@ -1,53 +1,45 @@
 ```
-# Dependencies
-node_modules/
+# Database WAL files
+*.db-shm
+*.db-wal
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-.ENV
-.env
+# Binary executables
+bin/
+
+# Dependencies
+vendor/
+node_modules/
+*.mod
+*.sum
 
 # Build artifacts
-dist/
-build/
-target/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
 
 # Logs
 *.log
 
-# OS generated files
-.DS_Store
-Thumbs.db
+# Environment
+.env
+.env.local
+*.env.*
 
-# Editor
+# Editors
 .vscode/
 .idea/
 *.swp
 *.swo
-*.tmp
 
 # Coverage
-.coverage
 coverage/
 htmlcov/
+*.coverage
 
-# Environment specific
-.env.local
-.env.*
-
-# Compiled files
-*.o
-*.obj
-*.exe
-*.dll
-*.so
-*.a
-*.out
+# OS
+.DS_Store
+Thumbs.db
 ```

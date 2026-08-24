@@ -19,11 +19,12 @@ type EventService interface {
 }
 
 type EventHandler struct {
-	svc EventService
+	svc     EventService
+	userSvc UserService
 }
 
-func NewEventHandler(svc EventService) *EventHandler {
-	return &EventHandler{svc: svc}
+func NewEventHandler(svc EventService, userSvc UserService) *EventHandler {
+	return &EventHandler{svc: svc, userSvc: userSvc}
 }
 
 func (h *EventHandler) RegisterRoutes(rg *gin.RouterGroup) {
@@ -139,7 +140,7 @@ func (h *EventHandler) create(c *gin.Context) {
 	}
 
 	// Получаем имя создателя
-	creatorFullName := getCreatorFullName(c, createdEvent.CreatorID)
+	creatorFullName := h.getCreatorFullName(c, createdEvent.CreatorID)
 
 	c.JSON(http.StatusCreated, ToEventResponse(createdEvent, creatorFullName))
 }
@@ -158,7 +159,7 @@ func (h *EventHandler) getByID(c *gin.Context) {
 	}
 
 	// Получаем имя создателя
-	creatorFullName := getCreatorFullName(c, event.CreatorID)
+	creatorFullName := h.getCreatorFullName(c, event.CreatorID)
 
 	c.JSON(http.StatusOK, ToEventResponse(event, creatorFullName))
 }
@@ -182,7 +183,7 @@ func (h *EventHandler) list(c *gin.Context) {
 	// Преобразуем список событий в ответ API
 	events := make([]EventResponse, 0, len(data.Events))
 	for i := range data.Events {
-		creatorFullName := getCreatorFullName(c, data.Events[i].CreatorID)
+		creatorFullName := h.getCreatorFullName(c, data.Events[i].CreatorID)
 		events = append(events, ToEventResponse(&data.Events[i], creatorFullName))
 	}
 
@@ -241,7 +242,7 @@ func (h *EventHandler) update(c *gin.Context) {
 	}
 
 	// Получаем имя создателя
-	creatorFullName := getCreatorFullName(c, updatedEvent.CreatorID)
+	creatorFullName := h.getCreatorFullName(c, updatedEvent.CreatorID)
 
 	c.JSON(http.StatusOK, ToEventResponse(updatedEvent, creatorFullName))
 }
@@ -262,18 +263,12 @@ func (h *EventHandler) delete(c *gin.Context) {
 }
 
 // getCreatorFullName получает полное имя создателя события
-func getCreatorFullName(c *gin.Context, creatorID string) string {
-	// Получаем сервис пользователей из контекста хендлера
-	h, ok := c.Get("handler")
-	if !ok {
-		return ""
-	}
-	handler, ok := h.(*Handler)
-	if !ok || handler.userSvc == nil {
+func (h *EventHandler) getCreatorFullName(c *gin.Context, creatorID string) string {
+	if h.userSvc == nil {
 		return ""
 	}
 
-	user, err := handler.userSvc.GetByID(c.Request.Context(), creatorID)
+	user, err := h.userSvc.GetByID(c.Request.Context(), creatorID)
 	if err != nil {
 		return ""
 	}
