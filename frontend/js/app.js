@@ -488,7 +488,8 @@ async function showInventoryForm(id = null) {
             if (inv.next_verification_date) inv.next_verification_date = inv.next_verification_date.substring(0, 10);
         } catch (err) { UI.toast(err.message, 'error'); return; }
     }
-    let users = []; try { users = await api.getUsers(); } catch {}
+    // Загружаем только активных пользователей для выбора ответственного
+    let users = []; try { users = await api.getActiveUsers(); } catch {}
     const opts = users.map(u => `<option value="${u.id}" ${inv.responsible_id === u.id ? 'selected' : ''}>${UI.escape(u.full_name)}</option>`).join('');
     const types = ['equipment', 'inventory', 'raw_material', 'other'];
     const typeLabels = { equipment: 'Оборудование', inventory: 'Инвентарь', raw_material: 'Сырьё', other: 'Другое' };
@@ -1139,7 +1140,7 @@ function initUsersPage() {
 
 async function loadUsers() {
     const tbody = document.getElementById('users-table-body');
-    tbody.innerHTML = '<tr><td colspan="7" class="loading">Загрузка...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="loading">Загрузка...</td></tr>';
     try {
         const users = await api.getUsers();
         
@@ -1151,22 +1152,16 @@ async function loadUsers() {
             filteredUsers = users.filter(u => !u.is_active);
         }
         
-        if (!filteredUsers.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Не найдено</td></tr>'; return; }
+        if (!filteredUsers.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Не найдено</td></tr>'; return; }
         tbody.innerHTML = filteredUsers.map((u, idx) => {
-            // Добавляем кабинет и дату рождения для не-студентов
-            let extraInfo = '';
-            if (u.role !== 'student') {
-                if (u.office) extraInfo += `<div class="text-muted" style="font-size:11px;">📍 Каб. ${UI.escape(u.office)}</div>`;
-                if (u.date_of_birth) {
-                    const dob = new Date(u.date_of_birth);
-                    extraInfo += `<div class="text-muted" style="font-size:11px;">🎂 ${dob.toLocaleDateString('ru-RU')}</div>`;
-                }
-            }
+            // Отображаем кабинет в отдельной колонке
+            const officeCell = u.office ? `<td>${UI.escape(u.office)}</td>` : '<td>—</td>';
             
             return `<tr style="cursor:pointer;" data-user-id="${u.id}">
                 <td>${idx + 1}</td>
-                <td><strong>${UI.escape(u.full_name)}</strong>${u.position ? `<div class="text-muted" style="font-size:12px;">${UI.escape(u.position)}</div>` : ''}${extraInfo}</td>
+                <td><strong>${UI.escape(u.full_name)}</strong>${u.position ? `<div class="text-muted" style="font-size:12px;">${UI.escape(u.position)}</div>` : ''}${u.role !== 'student' && u.date_of_birth ? `<div class="text-muted" style="font-size:11px;">🎂 ${new Date(u.date_of_birth).toLocaleDateString('ru-RU')}</div>` : ''}</td>
                 <td><span class="badge badge-role">${UI.roleName(u.role)}</span></td>
+                ${officeCell}
                 <td>${UI.escape(u.phone || '—')}</td>
                 <td>${UI.escape(u.email || '—')}</td>
                 <td>${u.is_active ? '<span class="badge badge-available">✓ Активен</span>' : '<span class="badge badge-lost">✗ Неактивен</span>'}</td>
@@ -1200,7 +1195,7 @@ async function loadUsers() {
                 });
             });
         }
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${UI.escape(err.message)}</td></tr>`; }
+    } catch (err) { tbody.innerHTML = `<tr><td colspan="8" class="empty-state">${UI.escape(err.message)}</td></tr>`; }
 }
 
 async function showUserForm(id = null) {
