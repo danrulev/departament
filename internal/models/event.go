@@ -9,6 +9,7 @@ type Event struct {
 	Location    *string    `json:"location" db:"location"`
 	Description *string    `json:"description" db:"description"`
 	StartTime   *time.Time `json:"start_time" db:"start_time"`
+	IsPublic    bool       `json:"is_public" db:"is_public"`
 	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
 }
@@ -18,6 +19,7 @@ type UpdateEvent struct {
 	Location    *string    `json:"location" db:"location"`
 	Description *string    `json:"description" db:"description"`
 	StartTime   *time.Time `json:"start_time" db:"start_time"`
+	IsPublic    *bool      `json:"is_public" db:"is_public"`
 }
 
 type EventFilter struct {
@@ -26,6 +28,7 @@ type EventFilter struct {
 	FirstDate *string `form:"first_date"`
 	LastDate  *string `form:"last_date"`
 	CreatorID *string `form:"creator_id"`
+	IsPublic  *bool   `form:"is_public"`
 	Paginated Paginated
 }
 

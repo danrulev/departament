@@ -80,6 +80,7 @@ func ToEventResponse(e *models.Event) EventResponse {
 		Location:    *e.Location,
 		Description: e.Description,
 		StartTime:   e.StartTime.Format("2006-01-02 15:04:05"),
+		IsPublic:    e.IsPublic,
 		CreatedAt:   e.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt:   e.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
@@ -120,6 +121,7 @@ func (h *EventHandler) create(c *gin.Context) {
 		Location:    req.Location,
 		Description: req.Description,
 		StartTime:   startTime,
+		IsPublic:    req.IsPublic,
 	}
 
 	id, err := h.svc.CreateEvent(c.Request.Context(), event)
@@ -213,6 +215,9 @@ func (h *EventHandler) update(c *gin.Context) {
 			return
 		}
 		updateData.StartTime = startTime
+	}
+	if req.IsPublic != nil {
+		updateData.IsPublic = req.IsPublic
 	}
 
 	if err := h.svc.UpdateEvent(c.Request.Context(), id, updateData); err != nil {
