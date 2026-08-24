@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
     position TEXT,
     phone TEXT,                    -- Контактный телефон
     email TEXT NOT NULL UNIQUE,    -- Email
+    date_of_birth TEXT,
+    office TEXT,
     is_active BOOLEAN DEFAULT 1,   -- Активен ли пользователь (уволился/выпустился)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
