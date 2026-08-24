@@ -125,6 +125,7 @@ class ApiClient {
     createUser(data)     { return this.request('/users', { method: 'POST', body: JSON.stringify(data) }); }
     updateUser(id, data) { return this.request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
     deactivateUser(id)   { return this.request(`/users/${id}`, { method: 'DELETE' }); }
+    activateUser(id)     { return this.request(`/users/${id}/activate`, { method: 'POST' }); }
     getUserHistory(id)   { return this.request(`/users/${id}/history`); }
     deleteUserAvatar(userId) { return this.request(`/users/${userId}/avatar`, { method: 'DELETE' }); }
 

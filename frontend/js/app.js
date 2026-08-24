@@ -860,12 +860,19 @@ async function renderUserProfilePage(userId) {
     try {
         const user = await api.getUser(userId);
         const avatarSrc = api.avatarUrl(user.id);
+        
+        // Форматируем дату рождения
+        let dobDisplay = '—';
+        if (user.date_of_birth) {
+            dobDisplay = new Date(user.date_of_birth).toLocaleDateString('ru-RU');
+        }
+        
         view.innerHTML = `<div class="pf-container">
-            <div class="ep-topbar"><button class="ep-back" onclick="window.location.hash='#/users'">← Назад</button>${isAdmin() ? `<button class="btn btn-primary" onclick="showUserForm('${user.id}')">✏️ Редактировать</button>` : ''}</div>
+            <div class="ep-topbar"><button class="ep-back" onclick="window.location.hash='#/users'">← Назад</button>${isAdmin() ? `<button class="btn btn-primary" onclick="showUserForm('${user.id}')">✏️ Редактировать</button><button class="btn ${user.is_active ? 'btn-danger' : 'btn-success'}" onclick="${user.is_active ? `api.deactivateUser('${user.id}').then(() => { UI.toast('Деактивирован', 'success'); window.location.reload(); })` : `api.activateUser('${user.id}').then(() => { UI.toast('Активирован', 'success'); window.location.reload(); })`}">${user.is_active ? '🚫 Деактивировать' : '✅ Активировать'}</button>` : ''}</div>
             <div class="pf-header">
                 <div class="pf-avatar"><img id="pf-avatar-img" src="${avatarSrc}" alt="${UI.escape(user.full_name)}"></div>
                 <div class="pf-identity">
-                    <div class="pf-role-line"><span class="pf-role">${UI.roleName(user.role)}</span>${user.is_active ? '<span class="pf-active">● активен</span>' : '<span class="pf-inactive">неактивен</span>'}</div>
+                    <div class="pf-role-line"><span class="pf-role">${UI.roleName(user.role)}</span>${user.is_active ? '<span class="pf-active">● активен</span>' : '<span class="pf-inactive">● неактивен</span>'}</div>
                     <h1 class="pf-name">${UI.escape(user.full_name)}</h1>
                     ${user.position ? `<div class="pf-position">${UI.escape(user.position)}</div>` : ''}
                     <div class="pf-contacts">${user.email ? `<span>✉️ ${UI.escape(user.email)}</span>` : ''}${user.phone ? `<span>📞 ${UI.escape(user.phone)}</span>` : ''}</div>
@@ -875,6 +882,8 @@ async function renderUserProfilePage(userId) {
                 <div class="ep-card"><h2 class="ep-card-title">Сведения</h2>
                     <div class="ep-fact"><span class="ep-label">Должность</span><span class="ep-value">${UI.escape(user.position || '—')}</span></div>
                     <div class="ep-fact"><span class="ep-label">Роль</span><span class="ep-value">${UI.roleName(user.role)}</span></div>
+                    ${user.role !== 'student' ? `<div class="ep-fact"><span class="ep-label">Дата рождения</span><span class="ep-value">${dobDisplay}</span></div>` : ''}
+                    ${user.role !== 'student' ? `<div class="ep-fact"><span class="ep-label">Кабинет</span><span class="ep-value">${UI.escape(user.office || '—')}</span></div>` : ''}
                     <div class="ep-fact"><span class="ep-label">Email</span><span class="ep-value">${UI.escape(user.email || '—')}</span></div>
                     <div class="ep-fact"><span class="ep-label">Телефон</span><span class="ep-value">${UI.escape(user.phone || '—')}</span></div>
                     <div class="ep-fact"><span class="ep-label">В системе с</span><span class="ep-value">${UI.formatDate(user.created_at)}</span></div>
@@ -1116,21 +1125,54 @@ async function showKeyHistory(keyId) {
 // ============================================================
 // ==================== ПОЛЬЗОВАТЕЛИ ==========================
 // ============================================================
-function initUsersPage() { document.getElementById('btn-add-user').addEventListener('click', () => showUserForm()); }
+const userState = { statusFilter: '' };
+
+function initUsersPage() {
+    document.getElementById('btn-add-user').addEventListener('click', () => showUserForm());
+    
+    // Фильтр по статусу
+    document.getElementById('user-status-filter').addEventListener('change', e => {
+        userState.statusFilter = e.target.value;
+        loadUsers();
+    });
+}
 
 async function loadUsers() {
     const tbody = document.getElementById('users-table-body');
-    tbody.innerHTML = '<tr><td colspan="6" class="loading">Загрузка...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="loading">Загрузка...</td></tr>';
     try {
         const users = await api.getUsers();
-        if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Не найдено</td></tr>'; return; }
-        tbody.innerHTML = users.map((u, idx) => `<tr style="cursor:pointer;" data-user-id="${u.id}">
-            <td>${idx + 1}</td>
-            <td><strong>${UI.escape(u.full_name)}</strong>${u.position ? `<div class="text-muted" style="font-size:12px;">${UI.escape(u.position)}</div>` : ''}</td>
-            <td><span class="badge badge-role">${UI.roleName(u.role)}</span></td>
-            <td>${UI.escape(u.phone || '—')}</td><td>${UI.escape(u.email || '—')}</td>
-            <td>${u.is_active ? '<span class="badge badge-available">Активен</span>' : '<span class="badge badge-lost">Неактивен</span>'}</td>
-            <td class="actions-cell">${isAdmin() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${u.id}">✏️</button><button class="btn btn-danger btn-sm" data-action="deactivate" data-id="${u.id}">🚫</button>` : '—'}</td></tr>`).join('');
+        
+        // Применяем фильтр по статусу
+        let filteredUsers = users;
+        if (userState.statusFilter === 'active') {
+            filteredUsers = users.filter(u => u.is_active);
+        } else if (userState.statusFilter === 'inactive') {
+            filteredUsers = users.filter(u => !u.is_active);
+        }
+        
+        if (!filteredUsers.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Не найдено</td></tr>'; return; }
+        tbody.innerHTML = filteredUsers.map((u, idx) => {
+            // Добавляем кабинет и дату рождения для не-студентов
+            let extraInfo = '';
+            if (u.role !== 'student') {
+                if (u.office) extraInfo += `<div class="text-muted" style="font-size:11px;">📍 Каб. ${UI.escape(u.office)}</div>`;
+                if (u.date_of_birth) {
+                    const dob = new Date(u.date_of_birth);
+                    extraInfo += `<div class="text-muted" style="font-size:11px;">🎂 ${dob.toLocaleDateString('ru-RU')}</div>`;
+                }
+            }
+            
+            return `<tr style="cursor:pointer;" data-user-id="${u.id}">
+                <td>${idx + 1}</td>
+                <td><strong>${UI.escape(u.full_name)}</strong>${u.position ? `<div class="text-muted" style="font-size:12px;">${UI.escape(u.position)}</div>` : ''}${extraInfo}</td>
+                <td><span class="badge badge-role">${UI.roleName(u.role)}</span></td>
+                <td>${UI.escape(u.phone || '—')}</td>
+                <td>${UI.escape(u.email || '—')}</td>
+                <td>${u.is_active ? '<span class="badge badge-available">✓ Активен</span>' : '<span class="badge badge-lost">✗ Неактивен</span>'}</td>
+                <td class="actions-cell">${isAdmin() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${u.id}" title="Редактировать">✏️</button><button class="btn ${u.is_active ? 'btn-danger' : 'btn-success'} btn-sm" data-action="${u.is_active ? 'deactivate' : 'activate'}" data-id="${u.id}" title="${u.is_active ? 'Деактивировать' : 'Активировать'}">${u.is_active ? '🚫' : '✅'}</button>` : '—'}</td>
+            </tr>`;
+        }).join('');
         
         // Обработчик клика на строку пользователя
         document.querySelectorAll('#users-table-body tr[data-user-id]').forEach(row => {
@@ -1147,27 +1189,41 @@ async function loadUsers() {
                 btn.addEventListener('click', async () => {
                     const id = btn.dataset.id;
                     if (btn.dataset.action === 'edit') await showUserForm(id);
-                    if (btn.dataset.action === 'deactivate' && UI.confirm('Деактивировать?')) {
-                        try { await api.deactivateUser(id); UI.toast('Деактивирован', 'success'); loadUsers(); }
+                    if (btn.dataset.action === 'deactivate' && UI.confirm('Деактивировать пользователя?')) {
+                        try { await api.deactivateUser(id); UI.toast('Пользователь деактивирован', 'success'); loadUsers(); }
+                        catch (e) { UI.toast(e.message, 'error'); }
+                    }
+                    if (btn.dataset.action === 'activate') {
+                        try { await api.activateUser(id); UI.toast('Пользователь активирован', 'success'); loadUsers(); }
                         catch (e) { UI.toast(e.message, 'error'); }
                     }
                 });
             });
         }
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${UI.escape(err.message)}</td></tr>`; }
+    } catch (err) { tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${UI.escape(err.message)}</td></tr>`; }
 }
 
 async function showUserForm(id = null) {
-    let user = { full_name: '', role: 'student', position: '', phone: '', email: '' };
+    let user = { full_name: '', role: 'student', position: '', phone: '', email: '', date_of_birth: null, office: '' };
     if (id) { try { user = await api.getUser(id); } catch (e) { UI.toast(e.message, 'error'); return; } }
+    
+    // Форматируем дату рождения для input type="date"
+    let dobValue = '';
+    if (user.date_of_birth) {
+        const d = new Date(user.date_of_birth);
+        dobValue = d.toISOString().split('T')[0];
+    }
+    
     const avatarBlock = id ? `<div class="form-group"><label>Аватар</label><div class="avatar-editor"><div class="avatar-preview" id="avatar-preview"></div><div class="avatar-controls">
         <label class="btn btn-secondary btn-sm" style="cursor:pointer;">📷 Загрузить<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none" onchange="uploadUserAvatarFromFile('${id}', this)"></label>
         <button type="button" class="btn btn-danger btn-sm" onclick="deleteUserAvatarFromForm('${id}')">Удалить</button></div></div></div>` : `<div class="form-group"><label>Аватар</label><small class="text-muted">Можно добавить после создания пользователя</small></div>`;
 
     UI.openModal(id ? 'Редактировать пользователя' : 'Новый пользователь', `<form id="user-form">
         <div class="form-group"><label>ФИО <span class="required">*</span></label><input type="text" class="input" name="full_name" value="${UI.escape(user.full_name)}" required minlength="3"></div>
-        <div class="form-group"><label>Роль <span class="required">*</span></label><select class="input" name="role" required><option value="student" ${user.role === 'student' ? 'selected' : ''}>Студент</option><option value="teacher" ${user.role === 'teacher' ? 'selected' : ''}>Преподаватель</option><option value="staff" ${user.role === 'staff' ? 'selected' : ''}>Сотрудник</option><option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Админ</option></select></div>
+        <div class="form-group"><label>Роль <span class="required">*</span></label><select class="input" name="role" id="user-role-select" required><option value="student" ${user.role === 'student' ? 'selected' : ''}>Студент</option><option value="teacher" ${user.role === 'teacher' ? 'selected' : ''}>Преподаватель</option><option value="staff" ${user.role === 'staff' ? 'selected' : ''}>Сотрудник</option><option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Админ</option></select></div>
         <div class="form-group"><label>Должность</label><input type="text" class="input" name="position" value="${UI.escape(user.position || '')}" placeholder="Напр. доцент, лаборант..."></div>
+        <div class="form-group non-student-field" style="${user.role === 'student' ? 'display:none;' : ''}"><label>Дата рождения</label><input type="date" class="input" name="date_of_birth" value="${UI.escape(dobValue)}"></div>
+        <div class="form-group non-student-field" style="${user.role === 'student' ? 'display:none;' : ''}"><label>Кабинет</label><input type="text" class="input" name="office" value="${UI.escape(user.office || '')}" placeholder="Напр. 301, 42-а..."></div>
         <div class="form-group"><label>Телефон</label><input type="tel" class="input" name="phone" value="${UI.escape(user.phone || '')}"></div>
         <div class="form-group"><label>Email</label><input type="email" class="input" name="email" value="${UI.escape(user.email || '')}"></div>
         ${avatarBlock}
@@ -1175,11 +1231,37 @@ async function showUserForm(id = null) {
         <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="UI.closeModal()">Отмена</button><button type="submit" class="btn btn-primary">${id ? 'Сохранить' : 'Создать'}</button></div></form>`);
 
     if (id) renderAvatarPreview(user);
+    
+    // Показываем/скрываем поля для не-студентов при изменении роли
+    const roleSelect = document.getElementById('user-role-select');
+    if (roleSelect) {
+        roleSelect.addEventListener('change', () => {
+            const isStudent = roleSelect.value === 'student';
+            document.querySelectorAll('.non-student-field').forEach(el => {
+                el.style.display = isStudent ? 'none' : '';
+            });
+        });
+    }
 
     document.getElementById('user-form').addEventListener('submit', async e => {
         e.preventDefault();
         const fd = new FormData(e.target);
-        const data = { full_name: fd.get('full_name').trim(), role: fd.get('role'), position: fd.get('position').trim() || null, phone: fd.get('phone').trim() || null, email: fd.get('email').trim() || null };
+        const role = fd.get('role');
+        const data = { 
+            full_name: fd.get('full_name').trim(), 
+            role: role, 
+            position: fd.get('position').trim() || null, 
+            phone: fd.get('phone').trim() || null, 
+            email: fd.get('email').trim() || null 
+        };
+        
+        // Добавляем дату рождения и кабинет только для не-студентов
+        if (role !== 'student') {
+            const dob = fd.get('date_of_birth');
+            data.date_of_birth = dob || null;
+            data.office = fd.get('office').trim() || null;
+        }
+        
         if (!id) { const pwd = fd.get('password'); if (pwd) data.password = pwd; }
         try {
             if (id) { await api.updateUser(id, data); UI.toast('Обновлён', 'success'); }

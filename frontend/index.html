@@ -196,6 +196,11 @@
                     <div class="page-header">
                         <h2>Пользователи</h2>
                         <div class="actions">
+                            <select id="user-status-filter" class="input" style="width:140px;">
+                                <option value="">Все статусы</option>
+                                <option value="active">Активные</option>
+                                <option value="inactive">Неактивные</option>
+                            </select>
                             <button class="btn btn-primary admin-only" id="btn-add-user" style="display:none;">+ Добавить</button>
                         </div>
                     </div>
@@ -203,7 +208,7 @@
                         <table class="table">
                             <thead>
                                 <tr>
-                                    <th>№</th><th>ФИО</th><th>Роль</th><th>Телефон</th>
+                                    <th>№</th><th>ФИО / Информация</th><th>Роль</th><th>Телефон</th>
                                     <th>Email</th><th>Статус</th><th>Действия</th>
                                 </tr>
                             </thead>
