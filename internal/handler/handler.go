@@ -52,6 +52,7 @@ type Handler struct {
 	inventory *InventoryHandler
 	photo     *InventoryPhotoHandler
 	event     *EventHandler
+	userSvc   UserService
 	log       *zap.Logger
 
 	rateLimiter     *ratelimiter.RateLimiter
@@ -70,6 +71,7 @@ func New(authSvc AuthService, articleSvc ArticleService, userSvc UserService, ke
 		inventory: NewInventoryHandler(InventorySvc),
 		photo:     NewPhotoHandler(photoSvc, cfg.Photo),
 		event:     NewEventHandler(eventSvc),
+		userSvc:   userSvc,
 		log:       log,
 
 		rateLimiter: rateLimiter,

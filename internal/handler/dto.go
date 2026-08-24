@@ -278,13 +278,14 @@ type UpdateEventRequest struct {
 }
 
 type EventResponse struct {
-	ID          int64   `json:"id"`
-	CreatorID   string  `json:"creator_id"`
-	Title       string  `json:"title"`
-	Location    string  `json:"location"`
-	Description *string `json:"description,omitempty"`
-	StartTime   string  `json:"start_time"`
-	IsPublic    bool    `json:"is_public"`
-	CreatedAt   string  `json:"created_at"`
-	UpdatedAt   string  `json:"updated_at"`
+	ID               int64   `json:"id"`
+	CreatorID        string  `json:"creator_id"`
+	CreatorFullName  string  `json:"creator_full_name"`
+	Title            string  `json:"title"`
+	Location         string  `json:"location"`
+	Description      *string `json:"description,omitempty"`
+	StartTime        string  `json:"start_time"`
+	IsPublic         bool    `json:"is_public"`
+	CreatedAt        string  `json:"created_at"`
+	UpdatedAt        string  `json:"updated_at"`
 }
