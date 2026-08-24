@@ -136,6 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initKeysPage();
     initArticlesPage();
     initUsersPage();
+    initEventsPage();
 
     window.addEventListener('hashchange', handleRoute);
 
@@ -1365,3 +1366,287 @@ window.deleteUserAvatarFromForm = async function(userId) {
         if (window.location.hash === '#/profile') renderProfilePage();
     } catch (err) { UI.toast(err.message, 'error'); }
 };
+// ============================================================
+// ==================== СОБЫТИЯ ===============================
+// ============================================================
+const evtState = { limit: 10, offset: 0, search: '', firstDate: '', lastDate: '', isPublic: '' };
+
+function initEventsPage() {
+    // Кнопка добавления события - доступна всем кроме студентов
+    const btnAddEvent = document.getElementById('btn-add-event');
+    if (btnAddEvent) {
+        btnAddEvent.addEventListener('click', () => {
+            if (currentUser && currentUser.role === 'student') {
+                UI.toast('Студенты не могут создавать события', 'error');
+                return;
+            }
+            showEventForm();
+        });
+    }
+
+    // Поиск
+    let t1;
+    const searchInput = document.getElementById('evt-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', e => {
+            clearTimeout(t1);
+            t1 = setTimeout(() => { evtState.search = e.target.value; evtState.offset = 0; loadEvents(); }, 300);
+        });
+    }
+
+    // Фильтр по дате начала
+    const firstDateInput = document.getElementById('evt-first-date');
+    if (firstDateInput) {
+        firstDateInput.addEventListener('change', e => {
+            evtState.firstDate = e.target.value;
+            evtState.offset = 0;
+            loadEvents();
+        });
+    }
+
+    // Фильтр по дате окончания
+    const lastDateInput = document.getElementById('evt-last-date');
+    if (lastDateInput) {
+        lastDateInput.addEventListener('change', e => {
+            evtState.lastDate = e.target.value;
+            evtState.offset = 0;
+            loadEvents();
+        });
+    }
+
+    // Фильтр по публичности
+    const publicFilter = document.getElementById('evt-public-filter');
+    if (publicFilter) {
+        publicFilter.addEventListener('change', e => {
+            evtState.isPublic = e.target.value;
+            evtState.offset = 0;
+            loadEvents();
+        });
+    }
+}
+
+async function loadEvents() {
+    const tbody = document.getElementById('events-table-body');
+    tbody.innerHTML = '<tr><td colspan="7" class="loading">Загрузка...</td></tr>';
+
+    try {
+        const params = {
+            limit: evtState.limit,
+            offset: evtState.offset,
+            title: evtState.search || undefined,
+            first_date: evtState.firstDate || undefined,
+            last_date: evtState.lastDate || undefined
+        };
+
+        if (evtState.isPublic !== '') {
+            params.is_public = evtState.isPublic === 'true';
+        }
+
+        const data = await api.getEvents(params);
+        const items = data.events || [];
+        const meta = data.paginated_metadata || { total: 0, page: 1, total_pages: 1 };
+
+        if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Не найдено</td></tr>';
+            document.getElementById('evt-pagination').innerHTML = '';
+            return;
+        }
+
+        const rows = items.map((e, idx) => {
+            const rowNum = evtState.offset + idx + 1;
+            const dateTime = UI.formatDate(e.start_time);
+            const badgeClass = e.is_public ? 'badge-available' : 'badge-lost';
+            const badgeText = e.is_public ? 'Публичное' : 'Приватное';
+            const creatorName = e.creator_full_name || e.creator_id;
+
+            return `<tr>
+                <td>${rowNum}</td>
+                <td><strong>${UI.escape(e.title)}</strong>${e.description ? `<br><small class="text-muted">${UI.escape(e.description.substring(0, 50))}${e.description.length > 50 ? '...' : ''}</small>` : ''}</td>
+                <td>${dateTime}</td>
+                <td>${UI.escape(e.location || '—')}</td>
+                <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+                <td>${UI.escape(creatorName)}</td>
+                <td class="actions-cell">
+                    <button class="btn btn-secondary btn-sm" data-action="view" data-id="${e.id}">👁️</button>
+                    ${canEditEvent(e) ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${e.id}">✏️</button>` : ''}
+                    ${canDeleteEvent(e) ? `<button class="btn btn-danger btn-sm" data-action="delete" data-id="${e.id}">🗑️</button>` : ''}
+                </td>
+            </tr>`;
+        });
+
+        tbody.innerHTML = rows.join('');
+        attachEventActions();
+        renderEvtPagination(meta.total_pages, meta.page);
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${UI.escape(err.message)}</td></tr>`;
+    }
+}
+
+function canEditEvent(event) {
+    if (!currentUser) return false;
+    if (currentUser.role === 'admin') return true;
+    if (currentUser.role === 'student') return false;
+    return event.creator_id === currentUser.userId;
+}
+
+function canDeleteEvent(event) {
+    if (!currentUser) return false;
+    if (currentUser.role === 'admin') return true;
+    if (currentUser.role === 'student') return false;
+    return event.creator_id === currentUser.userId;
+}
+
+function attachEventActions() {
+    document.querySelectorAll('#events-table-body [data-action]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = parseInt(btn.dataset.id);
+            const action = btn.dataset.action;
+
+            if (action === 'view') {
+                const event = await api.getEvent(id);
+                showEventViewModal(event);
+            } else if (action === 'edit') {
+                await showEventForm(id);
+            } else if (action === 'delete' && UI.confirm('Удалить это событие?')) {
+                try {
+                    await api.deleteEvent(id);
+                    UI.toast('Событие удалено', 'success');
+                    loadEvents();
+                } catch (e) {
+                    UI.toast(e.message, 'error');
+                }
+            }
+        });
+    });
+}
+
+function renderEvtPagination(totalPages, currentPage) {
+    const container = document.getElementById('evt-pagination');
+    if (!container || totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const pages = [];
+    for (let i = 1; i <= totalPages; i++) {
+        pages.push(`<button class="pagination-btn ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`);
+    }
+
+    container.innerHTML = `<div class="pagination-content">${pages.join('')}</div>`;
+
+    container.querySelectorAll('.pagination-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            evtState.offset = (parseInt(btn.dataset.page) - 1) * evtState.limit;
+            loadEvents();
+        });
+    });
+}
+
+function showEventViewModal(event) {
+    const html = `
+        <div class="event-view">
+            <div class="form-group"><label>Название</label><div>${UI.escape(event.title)}</div></div>
+            <div class="form-group"><label>Дата и время</label><div>${UI.formatDate(event.start_time)}</div></div>
+            <div class="form-group"><label>Локация</label><div>${UI.escape(event.location || '—')}</div></div>
+            ${event.description ? `<div class="form-group"><label>Описание</label><div>${UI.escape(event.description)}</div></div>` : ''}
+            <div class="form-group"><label>Тип</label><div><span class="badge ${event.is_public ? 'badge-available' : 'badge-lost'}">${event.is_public ? 'Публичное' : 'Приватное'}</span></div></div>
+            <div class="form-group"><label>Создатель</label><div>${UI.escape(event.creator_full_name || event.creator_id)}</div></div>
+        </div>
+    `;
+    UI.openModal(UI.escape(event.title), html);
+}
+
+function showEventForm(id = null) {
+    if (currentUser && currentUser.role === 'student') {
+        UI.toast('Студенты не могут создавать события', 'error');
+        return;
+    }
+
+    let eventData = {
+        title: '',
+        location: '',
+        description: '',
+        start_time: '',
+        is_public: true
+    };
+
+    if (id) {
+        api.getEvent(id).then(event => {
+            eventData = event;
+            // Форматируем дату для input datetime-local
+            let dateTimeValue = '';
+            if (event.start_time) {
+                const d = new Date(event.start_time);
+                dateTimeValue = d.toISOString().slice(0, 16);
+            }
+
+            UI.openModal('Редактировать событие', `
+                <form id="event-form">
+                    <div class="form-group"><label>Название <span class="required">*</span></label><input type="text" class="input" name="title" value="${UI.escape(eventData.title)}" required minlength="1" maxlength="255"></div>
+                    <div class="form-group"><label>Локация <span class="required">*</span></label><input type="text" class="input" name="location" value="${UI.escape(eventData.location || '')}" required minlength="1" maxlength="500"></div>
+                    <div class="form-group"><label>Дата и время <span class="required">*</span></label><input type="datetime-local" class="input" name="start_time" value="${dateTimeValue}" required></div>
+                    <div class="form-group"><label>Описание</label><textarea class="input" name="description" rows="4" maxlength="5000">${UI.escape(eventData.description || '')}</textarea></div>
+                    <div class="form-group"><label>Тип события</label><label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" name="is_public" ${eventData.is_public ? 'checked' : ''}> Публичное (видно всем)</label></div>
+                    <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="UI.closeModal()">Отмена</button><button type="submit" class="btn btn-primary">Сохранить</button></div>
+                </form>
+            `);
+
+            document.getElementById('event-form').addEventListener('submit', async e => {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                const updateData = {
+                    title: fd.get('title').trim(),
+                    location: fd.get('location').trim(),
+                    start_time: fd.get('start_time'),
+                    description: fd.get('description').trim() || null,
+                    is_public: fd.get('is_public') === 'on'
+                };
+
+                try {
+                    await api.updateEvent(id, updateData);
+                    UI.toast('Событие обновлено', 'success');
+                    UI.closeModal();
+                    loadEvents();
+                } catch (err) {
+                    UI.toast(err.message, 'error');
+                }
+            });
+        }).catch(err => {
+            UI.toast(err.message, 'error');
+        });
+        return;
+    }
+
+    // Создание нового события
+    UI.openModal('Новое событие', `
+        <form id="event-form">
+            <div class="form-group"><label>Название <span class="required">*</span></label><input type="text" class="input" name="title" required minlength="1" maxlength="255"></div>
+            <div class="form-group"><label>Локация <span class="required">*</span></label><input type="text" class="input" name="location" required minlength="1" maxlength="500"></div>
+            <div class="form-group"><label>Дата и время <span class="required">*</span></label><input type="datetime-local" class="input" name="start_time" required></div>
+            <div class="form-group"><label>Описание</label><textarea class="input" name="description" rows="4" maxlength="5000"></textarea></div>
+            <div class="form-group"><label>Тип события</label><label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" name="is_public" checked> Публичное (видно всем)</label></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="UI.closeModal()">Отмена</button><button type="submit" class="btn btn-primary">Создать</button></div>
+        </form>
+    `);
+
+    document.getElementById('event-form').addEventListener('submit', async e => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const newEventData = {
+            title: fd.get('title').trim(),
+            location: fd.get('location').trim(),
+            start_time: fd.get('start_time'),
+            description: fd.get('description').trim() || null,
+            is_public: fd.get('is_public') === 'on'
+        };
+
+        try {
+            await api.createEvent(newEventData);
+            UI.toast('Событие создано', 'success');
+            UI.closeModal();
+            loadEvents();
+        } catch (err) {
+            UI.toast(err.message, 'error');
+        }
+    });
+}

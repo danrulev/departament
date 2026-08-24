@@ -225,7 +225,7 @@ class ApiClient {
         if (params.offset)    q.append('offset', params.offset);
         if (params.search)    q.append('search', params.search);
         if (params.status)    q.append('status', params.status);
-        if (params.author_id) q.append('author_id', params.author_id); // ← НОВОЕ
+        if (params.author_id) q.append('author_id', params.author_id);
         const qs = q.toString();
         return this.request(`/articles${qs ? '?' + qs : ''}`);
     }
@@ -233,6 +233,25 @@ class ApiClient {
     createArticle(data)     { return this.request('/articles', { method: 'POST', body: JSON.stringify(data) }); }
     updateArticle(id, data) { return this.request(`/articles/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
     deleteArticle(id)       { return this.request(`/articles/${id}`, { method: 'DELETE' }); }
+
+    // ─── Events ───
+    getEvents(params = {}) {
+        const q = new URLSearchParams();
+        if (params.limit)      q.append('limit', params.limit);
+        if (params.offset)     q.append('offset', params.offset);
+        if (params.title)      q.append('title', params.title);
+        if (params.first_date) q.append('first_date', params.first_date);
+        if (params.last_date)  q.append('last_date', params.last_date);
+        if (params.is_public !== undefined && params.is_public !== null) {
+            q.append('is_public', String(params.is_public));
+        }
+        const qs = q.toString();
+        return this.request(`/events${qs ? '?' + qs : ''}`);
+    }
+    getEvent(id)          { return this.request(`/events/${id}`); }
+    createEvent(data)     { return this.request('/events', { method: 'POST', body: JSON.stringify(data) }); }
+    updateEvent(id, data) { return this.request(`/events/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
+    deleteEvent(id)       { return this.request(`/events/${id}`, { method: 'DELETE' }); }
 }
 
 const api = new ApiClient(API_BASE);

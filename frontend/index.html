@@ -51,6 +51,10 @@
                     <span class="sidebar-icon">📄</span>
                     <span class="sidebar-label">Статьи</span>
                 </a>
+                <a href="#" class="sidebar-item" data-page="events">
+                    <span class="sidebar-icon">📅</span>
+                    <span class="sidebar-label">События</span>
+                </a>
                 <a href="#" class="sidebar-item admin-only" data-page="users" style="display:none;">
                     <span class="sidebar-icon">👥</span>
                     <span class="sidebar-label">Пользователи</span>
@@ -189,6 +193,37 @@
                         </table>
                     </div>
                     <div class="pagination" id="art-pagination"></div>
+                </section>
+
+                <!-- ===== СОБЫТИЯ ===== -->
+                <section id="page-events" class="page">
+                    <div class="page-header">
+                        <h2>События</h2>
+                        <div class="actions">
+                            <input type="text" id="evt-search" class="input" placeholder="Поиск..." style="width:200px;">
+                            <input type="date" id="evt-first-date" class="input" style="width:140px;">
+                            <input type="date" id="evt-last-date" class="input" style="width:140px;">
+                            <select id="evt-public-filter" class="input" style="width:140px;">
+                                <option value="">Все события</option>
+                                <option value="true">Публичные</option>
+                                <option value="false">Приватные</option>
+                            </select>
+                            <button class="btn btn-primary" id="btn-add-event">+ Добавить</button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>№</th><th>Название</th><th>Дата и время</th><th>Локация</th><th>Тип</th><th>Создатель</th><th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="events-table-body">
+                                <tr><td colspan="7" class="loading">Загрузка...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="evt-pagination"></div>
                 </section>
 
                 <!-- ===== ПОЛЬЗОВАТЕЛИ ===== -->

@@ -266,6 +266,7 @@ type CreateEventRequest struct {
 	Location    *string `json:"location" binding:"required,min=1,max=500"`
 	Description *string `json:"description" binding:"omitempty,max=5000"`
 	StartTime   *string `json:"start_time" binding:"required"`
+	IsPublic    bool    `json:"is_public" binding:"required"`
 }
 
 type UpdateEventRequest struct {
@@ -273,15 +274,18 @@ type UpdateEventRequest struct {
 	Location    *string `json:"location" binding:"omitempty,min=1,max=500"`
 	Description *string `json:"description" binding:"omitempty,max=5000"`
 	StartTime   *string `json:"start_time"`
+	IsPublic    *bool   `json:"is_public"`
 }
 
 type EventResponse struct {
-	ID          int64   `json:"id"`
-	CreatorID   string  `json:"creator_id"`
-	Title       string  `json:"title"`
-	Location    string  `json:"location"`
-	Description *string `json:"description,omitempty"`
-	StartTime   string  `json:"start_time"`
-	CreatedAt   string  `json:"created_at"`
-	UpdatedAt   string  `json:"updated_at"`
+	ID               int64   `json:"id"`
+	CreatorID        string  `json:"creator_id"`
+	CreatorFullName  string  `json:"creator_full_name"`
+	Title            string  `json:"title"`
+	Location         string  `json:"location"`
+	Description      *string `json:"description,omitempty"`
+	StartTime        string  `json:"start_time"`
+	IsPublic         bool    `json:"is_public"`
+	CreatedAt        string  `json:"created_at"`
+	UpdatedAt        string  `json:"updated_at"`
 }

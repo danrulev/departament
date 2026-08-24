@@ -72,16 +72,18 @@ func parseDateTime(s *string) (*time.Time, error) {
 }
 
 // ToEventResponse преобразует модель события в ответ API
-func ToEventResponse(e *models.Event) EventResponse {
+func ToEventResponse(e *models.Event, creatorFullName string) EventResponse {
 	resp := EventResponse{
-		ID:          e.ID,
-		CreatorID:   e.CreatorID,
-		Title:       *e.Title,
-		Location:    *e.Location,
-		Description: e.Description,
-		StartTime:   e.StartTime.Format("2006-01-02 15:04:05"),
-		CreatedAt:   e.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:   e.UpdatedAt.Format("2006-01-02 15:04:05"),
+		ID:               e.ID,
+		CreatorID:        e.CreatorID,
+		CreatorFullName:  creatorFullName,
+		Title:            *e.Title,
+		Location:         *e.Location,
+		Description:      e.Description,
+		StartTime:        e.StartTime.Format("2006-01-02 15:04:05"),
+		IsPublic:         e.IsPublic,
+		CreatedAt:        e.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:        e.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 	return resp
 }
@@ -120,6 +122,7 @@ func (h *EventHandler) create(c *gin.Context) {
 		Location:    req.Location,
 		Description: req.Description,
 		StartTime:   startTime,
+		IsPublic:    req.IsPublic,
 	}
 
 	id, err := h.svc.CreateEvent(c.Request.Context(), event)
@@ -135,7 +138,10 @@ func (h *EventHandler) create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, ToEventResponse(createdEvent))
+	// Получаем имя создателя
+	creatorFullName := getCreatorFullName(c, createdEvent.CreatorID)
+
+	c.JSON(http.StatusCreated, ToEventResponse(createdEvent, creatorFullName))
 }
 
 // getByID обрабатывает GET /api/v1/events/:id
@@ -151,7 +157,10 @@ func (h *EventHandler) getByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, ToEventResponse(event))
+	// Получаем имя создателя
+	creatorFullName := getCreatorFullName(c, event.CreatorID)
+
+	c.JSON(http.StatusOK, ToEventResponse(event, creatorFullName))
 }
 
 // list обрабатывает GET /api/v1/events
@@ -173,7 +182,8 @@ func (h *EventHandler) list(c *gin.Context) {
 	// Преобразуем список событий в ответ API
 	events := make([]EventResponse, 0, len(data.Events))
 	for i := range data.Events {
-		events = append(events, ToEventResponse(&data.Events[i]))
+		creatorFullName := getCreatorFullName(c, data.Events[i].CreatorID)
+		events = append(events, ToEventResponse(&data.Events[i], creatorFullName))
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -214,6 +224,9 @@ func (h *EventHandler) update(c *gin.Context) {
 		}
 		updateData.StartTime = startTime
 	}
+	if req.IsPublic != nil {
+		updateData.IsPublic = req.IsPublic
+	}
 
 	if err := h.svc.UpdateEvent(c.Request.Context(), id, updateData); err != nil {
 		handleError(c, err)
@@ -227,7 +240,10 @@ func (h *EventHandler) update(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, ToEventResponse(updatedEvent))
+	// Получаем имя создателя
+	creatorFullName := getCreatorFullName(c, updatedEvent.CreatorID)
+
+	c.JSON(http.StatusOK, ToEventResponse(updatedEvent, creatorFullName))
 }
 
 // delete обрабатывает DELETE /api/v1/events/:id
@@ -243,4 +259,26 @@ func (h *EventHandler) delete(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, MessageResponse{Message: "событие удалено"})
+}
+
+// getCreatorFullName получает полное имя создателя события
+func getCreatorFullName(c *gin.Context, creatorID string) string {
+	// Получаем сервис пользователей из контекста хендлера
+	h, ok := c.Get("handler")
+	if !ok {
+		return ""
+	}
+	handler, ok := h.(*Handler)
+	if !ok || handler.userSvc == nil {
+		return ""
+	}
+
+	user, err := handler.userSvc.GetByID(c.Request.Context(), creatorID)
+	if err != nil {
+		return ""
+	}
+	if user == nil {
+		return ""
+	}
+	return user.FullName
 }

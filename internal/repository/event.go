@@ -26,12 +26,13 @@ func NewEventRepository(db *sqlx.DB, log *zap.Logger) *EventRepo {
 func (r *EventRepo) CreateEvent(ctx context.Context, event models.Event) (int64, error) {
 	var id int64
 	err := r.db.GetContext(ctx, &id,
-		`INSERT INTO events (creator_id, title, description, location, start_time) VALUES (?, ?, ?, ?, ?) RETURNING id`,
+		`INSERT INTO events (creator_id, title, description, location, start_time, is_public) VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
 		event.CreatorID,
 		event.Title,
 		event.Description,
 		event.Location,
 		event.StartTime,
+		event.IsPublic,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("insert event: %w", err)
@@ -43,7 +44,7 @@ func (r *EventRepo) CreateEvent(ctx context.Context, event models.Event) (int64,
 func (r *EventRepo) Event(ctx context.Context, id int64) (*models.Event, error) {
 	event := &models.Event{}
 	err := r.db.GetContext(ctx, event,
-		`SELECT id, creator_id, title, description, location, start_time, created_at, updated_at
+		`SELECT id, creator_id, title, description, location, start_time, is_public, created_at, updated_at
          FROM events WHERE id = ?`, id)
 	if err != nil {
 		return nil, fmt.Errorf("get event: %w", err)
@@ -83,6 +84,11 @@ func (r *EventRepo) EventsList(ctx context.Context, f models.EventFilter) ([]mod
 		args = append(args, *f.LastDate)
 	}
 
+	if f.IsPublic != nil {
+		conditions = append(conditions, "is_public = ?")
+		args = append(args, *f.IsPublic)
+	}
+
 	whereClause := ""
 	if len(conditions) > 0 {
 		whereClause = " WHERE " + strings.Join(conditions, " AND ")
@@ -119,6 +125,7 @@ func (r *EventRepo) UpdateEvent(ctx context.Context, event *models.Event, id int
 			description = :description,
 			location = :location,
 			start_time = :start_time,
+			is_public = :is_public,
 			updated_at = CURRENT_TIMESTAMP
 		WHERE id = :id
 		`, event)
@@ -128,7 +135,7 @@ func (r *EventRepo) UpdateEvent(ctx context.Context, event *models.Event, id int
 
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return errors.New("inventory not found")
+		return errors.New("event not found")
 	}
 	return nil
 }
