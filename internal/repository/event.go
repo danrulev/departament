@@ -84,7 +84,10 @@ func (r *EventRepo) EventsList(ctx context.Context, f models.EventFilter) ([]mod
 		args = append(args, *f.LastDate)
 	}
 
-	if f.IsPublic != nil {
+	// Если IsPublic не указан явно, показываем только публичные события
+	if f.IsPublic == nil {
+		conditions = append(conditions, "is_public = 1")
+	} else {
 		conditions = append(conditions, "is_public = ?")
 		args = append(args, *f.IsPublic)
 	}
@@ -110,7 +113,7 @@ func (r *EventRepo) EventsList(ctx context.Context, f models.EventFilter) ([]mod
 	listArgs = append(listArgs, f.Paginated.Limit, f.Paginated.Offset)
 
 	events := make([]models.Event, 0, f.Paginated.Limit)
-	query := `SELECT * FROM events` + whereClause + ` ORDER BY created_at DESC LIMIT ? OFFSET ?`
+	query := `SELECT id, creator_id, title, description, location, start_time, is_public, created_at, updated_at FROM events` + whereClause + ` ORDER BY created_at DESC LIMIT ? OFFSET ?`
 	if err := r.db.SelectContext(ctx, &events, query, listArgs...); err != nil {
 		return nil, 0, fmt.Errorf("list events: %w", err)
 	}

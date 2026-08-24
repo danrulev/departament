@@ -229,9 +229,24 @@ func (s *EventService) UpdateEvent(ctx context.Context, id int64, u *models.Upda
 		return fmt.Errorf("event %d not found", id)
 	}
 
-	var user models.Event
+	// Применяем обновления к существующему событию
+	if u.Title != nil {
+		existing.Title = u.Title
+	}
+	if u.Location != nil {
+		existing.Location = u.Location
+	}
+	if u.Description != nil {
+		existing.Description = u.Description
+	}
+	if u.StartTime != nil {
+		existing.StartTime = u.StartTime
+	}
+	if u.IsPublic != nil {
+		existing.IsPublic = *u.IsPublic
+	}
 
-	if err := s.repo.UpdateEvent(ctx, &user, id); err != nil {
+	if err := s.repo.UpdateEvent(ctx, existing, id); err != nil {
 		s.log.Error("failed to update event",
 			zap.Int64("id", id),
 			zap.Error(err),
