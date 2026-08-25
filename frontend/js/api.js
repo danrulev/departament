@@ -245,6 +245,7 @@ class ApiClient {
         if (params.is_public !== undefined && params.is_public !== null) {
             q.append('is_public', String(params.is_public));
         }
+        if (params.all)        q.append('all', params.all);
         const qs = q.toString();
         return this.request(`/events${qs ? '?' + qs : ''}`);
     }
