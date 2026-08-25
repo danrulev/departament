@@ -59,9 +59,17 @@ func (r *EventRepo) EventsList(ctx context.Context, f models.EventFilter) ([]mod
 		args       []interface{}
 	)
 
-	if f.CreatorID != nil {
+	if f.CreatorID != nil && *f.CreatorID != "" {
+		// Если указан creator_id, показываем все события этого пользователя (и публичные, и приватные)
 		conditions = append(conditions, "creator_id = ?")
 		args = append(args, *f.CreatorID)
+	} else if f.IsPublic == nil {
+		// Если creator_id не указан и IsPublic не задан явно, показываем только публичные события
+		conditions = append(conditions, "is_public = 1")
+	} else {
+		// Если IsPublic задан явно, используем этот фильтр
+		conditions = append(conditions, "is_public = ?")
+		args = append(args, *f.IsPublic)
 	}
 
 	if f.Title != nil {
@@ -82,14 +90,6 @@ func (r *EventRepo) EventsList(ctx context.Context, f models.EventFilter) ([]mod
 	if f.LastDate != nil {
 		conditions = append(conditions, "start_time <= ?")
 		args = append(args, *f.LastDate)
-	}
-
-	// Если IsPublic не указан явно, показываем только публичные события
-	if f.IsPublic == nil {
-		conditions = append(conditions, "is_public = 1")
-	} else {
-		conditions = append(conditions, "is_public = ?")
-		args = append(args, *f.IsPublic)
 	}
 
 	whereClause := ""

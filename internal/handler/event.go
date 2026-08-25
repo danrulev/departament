@@ -174,6 +174,31 @@ func (h *EventHandler) list(c *gin.Context) {
 
 	filter.Paginated.Validate()
 
+	// Проверяем, является ли пользователь админом
+	isAdmin := false
+	if raw, exists := c.Get(roleKey); exists {
+		if role, ok := raw.(string); ok && role == "admin" {
+			isAdmin = true
+		}
+	}
+
+	// Проверяем параметр all (только для админов)
+	showAll := false
+	if isAdmin {
+		allParam := c.Query("all")
+		showAll = allParam == "true"
+	}
+
+	// Если не режим "все события для админа", устанавливаем creator_id
+	if !showAll {
+		// Если creator_id не передан явно, пытаемся получить из токена авторизации
+		if filter.CreatorID == nil || *filter.CreatorID == "" {
+			if uid, err := getUserID(c); err == nil {
+				filter.CreatorID = func() *string { s := uid.String(); return &s }()
+			}
+		}
+	}
+
 	data, err := h.svc.EventsList(c.Request.Context(), filter)
 	if err != nil {
 		handleError(c, err)

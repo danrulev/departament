@@ -1438,6 +1438,11 @@ async function loadEvents() {
             last_date: evtState.lastDate || undefined
         };
 
+        // Добавляем параметр all=true для админов, чтобы показывать все события
+        if (currentUser && currentUser.role === 'admin') {
+            params.all = 'true';
+        }
+
         if (evtState.isPublic !== '') {
             params.is_public = evtState.isPublic === 'true';
         }
