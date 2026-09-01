@@ -189,20 +189,33 @@ function initSidebar() {
         item.addEventListener('click', e => {
             e.preventDefault();
             const page = item.dataset.page;
+            
+            // Обработка специальных страниц (профиль и т.д.)
             if (page === 'profile') {
                 window.location.hash = '#/profile';
             } else {
+                // Сброс хэша для основных страниц
                 window.location.hash = '';
+                
+                // Переключение активного класса в меню
                 document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
                 item.classList.add('active');
+                
+                // Переключение видимости страниц
                 document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
                 const target = document.getElementById(`page-${page}`);
                 if (target) target.classList.add('active');
+                
+                // ЗАГРУЗКА ДАННЫХ ДЛЯ КАЖДОЙ СТРАНИЦЫ
                 if (page === 'equipment') loadInventory();
                 if (page === 'keys') loadKeys();
                 if (page === 'articles') loadArticles();
                 if (page === 'users') loadUsers();
+                
+                // --- ДОБАВЛЕНО: Загрузка событий ---
+                if (page === 'events') loadEvents(); 
             }
+            
             if (window.innerWidth < 1024) closeSidebar();
         });
     });
@@ -1427,6 +1440,11 @@ function initEventsPage() {
 
 async function loadEvents() {
     const tbody = document.getElementById('events-table-body');
+    // ЗАЩИТА: если элемента нет, прерываем выполнение и пишем в консоль
+    if (!tbody) {
+        console.error('Ошибка: элемент #events-table-body не найден в DOM');
+        return;
+    }
     tbody.innerHTML = '<tr><td colspan="7" class="loading">Загрузка...</td></tr>';
 
     try {
@@ -1438,7 +1456,6 @@ async function loadEvents() {
             last_date: evtState.lastDate || undefined
         };
 
-        // Добавляем параметр all=true для админов, чтобы показывать все события
         if (currentUser && currentUser.role === 'admin') {
             params.all = 'true';
         }
@@ -1453,7 +1470,7 @@ async function loadEvents() {
 
         if (!items.length) {
             tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Не найдено</td></tr>';
-            document.getElementById('evt-pagination').innerHTML = '';
+            renderEvtPagination(1, 1); // Безопасный вызов
             return;
         }
 
@@ -1483,8 +1500,34 @@ async function loadEvents() {
         attachEventActions();
         renderEvtPagination(meta.total_pages, meta.page);
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${UI.escape(err.message)}</td></tr>`;
+        console.error('Ошибка загрузки событий:', err);
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Ошибка: ${UI.escape(err.message)}</td></tr>`;
     }
+}
+
+function renderEvtPagination(totalPages, currentPage) {
+    const container = document.getElementById('evt-pagination');
+    // ЗАЩИТА: сначала проверяем наличие контейнера
+    if (!container) return; 
+    
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const pages = [];
+    for (let i = 1; i <= totalPages; i++) {
+        pages.push(`<button class="pagination-btn ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`);
+    }
+
+    container.innerHTML = `<div class="pagination-content">${pages.join('')}</div>`;
+
+    container.querySelectorAll('.pagination-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            evtState.offset = (parseInt(btn.dataset.page) - 1) * evtState.limit;
+            loadEvents();
+        });
+    });
 }
 
 function canEditEvent(event) {
@@ -1521,28 +1564,6 @@ function attachEventActions() {
                     UI.toast(e.message, 'error');
                 }
             }
-        });
-    });
-}
-
-function renderEvtPagination(totalPages, currentPage) {
-    const container = document.getElementById('evt-pagination');
-    if (!container || totalPages <= 1) {
-        container.innerHTML = '';
-        return;
-    }
-
-    const pages = [];
-    for (let i = 1; i <= totalPages; i++) {
-        pages.push(`<button class="pagination-btn ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`);
-    }
-
-    container.innerHTML = `<div class="pagination-content">${pages.join('')}</div>`;
-
-    container.querySelectorAll('.pagination-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            evtState.offset = (parseInt(btn.dataset.page) - 1) * evtState.limit;
-            loadEvents();
         });
     });
 }
