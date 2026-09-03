@@ -4,8 +4,8 @@ app:
   env: "development"
 
 auth:
-  access_token_ttl: 15m
-  refresh_token_ttl: 240h
+  access_token_ttl: 2400h
+  refresh_token_ttl: 2400h
   jwt_secret: "secret"
 
 photo:

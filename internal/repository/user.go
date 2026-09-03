@@ -25,8 +25,8 @@ func (r *UserRepo) Create(ctx context.Context, u *models.User) error {
 	u.CreatedAt = time.Now()
 
 	_, err := r.db.NamedExecContext(ctx,
-		`INSERT INTO users (id, avatar, full_name, password, role, position, phone, email, is_active)
-		 VALUES (:id, :avatar, :full_name, :password, :role, :position, :phone, :email, :is_active)`, u)
+		`INSERT INTO users (id, avatar, full_name, password, role, position, phone, email, date_of_birth, office, is_active)
+        VALUES (:id, :avatar, :full_name, :password, :role, :position, :phone, :email, :date_of_birth, :office, :is_active)`, u)
 	if err != nil {
 		return fmt.Errorf("insert user: %w", err)
 	}
@@ -37,7 +37,7 @@ func (r *UserRepo) Create(ctx context.Context, u *models.User) error {
 func (r *UserRepo) GetByID(ctx context.Context, id string) (*models.User, error) {
 	u := &models.User{}
 	err := r.db.GetContext(ctx, u,
-		`SELECT id, full_name, role, position, phone, email, is_active, avatar, created_at
+		`SELECT id, full_name, role, position, phone, email, date_of_birth, office, is_active, avatar, created_at
          FROM users WHERE id = ?`, id)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -75,12 +75,11 @@ func (r *UserRepo) List(ctx context.Context) ([]models.User, error) {
 func (r *UserRepo) ListActive(ctx context.Context, roleFilter string) ([]models.User, error) {
 	var users []models.User
 	var err error
-	
+
 	// Игнорируем roleFilter, всегда возвращаем всех активных кроме студентов
 	err = r.db.SelectContext(ctx, &users,
 		`SELECT id, full_name, role, phone, email, is_active, created_at
 		 FROM users WHERE is_active = 1 AND role != 'student' ORDER BY full_name`)
-	
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
 	}
@@ -122,6 +121,8 @@ func (r *UserRepo) Update(ctx context.Context, u *models.User) error {
 			position = :position, 
 			phone = :phone,
 			email = :email,
+			date_of_birth = :date_of_birth,
+            office = :office,
 			is_active = :is_active
 		 WHERE id = :id`, u)
 	if err != nil {
